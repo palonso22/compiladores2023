@@ -22,6 +22,7 @@ import Text.ParserCombinators.Parsec.Language --( GenLanguageDef(..), emptyDef )
 import qualified Text.Parsec.Expr as Ex
 import Text.Parsec.Expr (Operator, Assoc)
 import Control.Monad.Identity (Identity)
+import qualified Data.Foldable
 
 type P = Parsec String ()
 
@@ -120,20 +121,32 @@ atom =     (flip SConst <$> const <*> getPos)
        <|> parens expr
        <|> printOp
 
--- parsea un par (variable : tipo)
-binding :: P (Name, Ty)
-binding = do v <- var
+-- parsea una lista de (variable : tipo)
+binding :: P [(Name, Ty)]
+binding = do v <- many var
              reservedOp ":"
              ty <- typeP
-             return (v, ty)
+             return [(n,ty)| n <- v]
+
+-- parsea un par (variable : tipo)
+oneBinding :: P (Name, Ty)
+oneBinding = do v <- var
+                reservedOp ":"
+                ty <- typeP
+                return (v,ty)
+
+
+binder ::P [(Name, Ty)]
+binder = parens binding
 
 lam :: P STerm
 lam = do i <- getPos
          reserved "fun"
-         (v,ty) <- parens binding
+         vars <- many binder         
          reservedOp "->"
          t <- expr
-         return (SLam i (v,ty) t)
+         let vars' = Data.Foldable.concat vars
+         return (SLam i vars' t)
 
 -- Nota el parser app también parsea un solo atom.
 app :: P STerm
@@ -155,44 +168,69 @@ ifz = do i <- getPos
 fix :: P STerm
 fix = do i <- getPos
          reserved "fix"
-         (f, fty) <- parens binding
-         (x, xty) <- parens binding
+         (f, fty) <- parens oneBinding
+         vars <- many binder         
+         let vars' = Data.Foldable.concat vars
          reservedOp "->"
          t <- expr
-         return (SFix i (f,fty) (x,xty) t)
+         return (SFix i (f,fty) vars' t)
 
 letexp :: P STerm
 letexp = do
   i <- getPos
   reserved "let"
-  (v,ty) <- parens binding
-  reservedOp "="  
+  isRec <- parseRec
+  name <- var
+  vars <- many binder 
+  let vars' = Data.Foldable.concat vars
+  reservedOp ":"
+  retty <- typeP
+  reservedOp "="
   def <- expr
   reserved "in"
-  body <- expr
-  return (SLet i (v,ty) def body)
+  SLet i isRec name vars' retty def <$> expr
+
+parseRec :: P Bool
+parseRec = (reserved "rec" >> return True) <|> return False
+
 
 -- | Parser de términos
 tm :: P STerm
 tm = app <|> lam <|> ifz <|> printOp <|> fix <|> letexp
 
 -- | Parser de declaraciones
-decl :: P (Decl STerm)
-decl = do 
+decl :: P (SDecl STerm)
+decl = do
      i <- getPos
      reserved "let"
-     v <- var
+     b <- parseRec
+     name <- var
+     ls <- many binder
+     let ls' = Data.Foldable.concat ls 
+     reservedOp ":"
+     ty <-  typeP
      reservedOp "="
-     t <- expr
-     return (Decl i v t)
+     SDecl i b name ls' ty <$> expr
 
 -- | Parser de programas (listas de declaraciones) 
-program :: P [Decl STerm]
-program = many decl
+program :: P [SDecl STerm]
+program = many $ declOrSintype
+
+declOrSintype :: ParsecT String () Identity (SDecl STerm)
+declOrSintype = try (decl <|> sintype)
+
+sintype::P (SDecl a)
+sintype = do reserved "type"
+             name <- var
+             reservedOp "="
+             value <- typeP
+             return $ SType name value
+
+
 
 -- | Parsea una declaración a un término
 -- Útil para las sesiones interactivas
-declOrTm :: P (Either (Decl STerm) STerm)
+declOrTm :: P (Either (SDecl STerm) STerm)
 declOrTm =  try (Left <$> decl) <|> (Right <$> expr)
 
 -- Corre un parser, chequeando que se pueda consumir toda la entrada
@@ -204,3 +242,23 @@ parse :: String -> STerm
 parse s = case runP expr s "" of
             Right t -> t
             Left e -> error ("no parse: " ++ show s)
+
+-- Esto se usa para sinonimos de tipo
+varST :: P Name
+varST = identifierST
+
+identifierST :: P String
+identifierST = Tok.identifier lexerST
+
+-- creamos un nuevo lexer que no tenga como palabras reservadas Nat y ->
+lexerST ::Tok.TokenParser u
+lexerST = Tok.makeTokenParser $
+          emptyDef {
+          commentLine    = "#",
+          reservedNames = ["let", "fun", "fix", "then", "else","in",
+                           "ifz", "print"],
+          reservedOpNames = [":","=","+","-"]
+          }
+
+
+

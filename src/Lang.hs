@@ -27,19 +27,21 @@ import           Data.List.Extra                ( nubSort )
 data STm info ty var =
     SV info var
   | SConst info Const
-  | SLam info (var, ty) (STm info ty var)
+  | SLam info [(var, ty)] (STm info ty var)
   | SApp info (STm info ty var) (STm info ty var)
   | SPrint info String (STm info ty var)
   | SBinaryOp info BinaryOp (STm info ty var) (STm info ty var)
-  | SFix info (var, ty) (var, ty) (STm info ty var)
+  | SFix info (var, ty) [(var, ty)] (STm info ty var)
   | SIfZ info (STm info ty var) (STm info ty var) (STm info ty var)
-  | SLet info (var, ty) (STm info ty var) (STm info ty var)
+  | SLet info Bool Name [(var, ty)] ty (STm info ty var) (STm info ty var)
   deriving (Show, Functor)
+
 
 -- | AST de Tipos
 data Ty =
       NatTy
     | FunTy Ty Ty
+    | SinTy Name
     deriving (Show,Eq)
 
 type Name = String
@@ -47,6 +49,9 @@ type Name = String
 type STerm = STm Pos Ty Name -- ^ 'STm' tiene 'Name's como variables ligadas y libres y globales, guarda posición  
 
 newtype Const = CNat Int
+  deriving Show
+
+newtype SConst = SCNat Int
   deriving Show
 
 data BinaryOp = Add | Sub
@@ -59,6 +64,19 @@ data Decl a = Decl
   , declBody :: a
   }
   deriving (Show, Functor)
+
+data SDecl a = SDecl
+  { sdeclPos  :: Pos
+  , sdeclRec  :: Bool
+  , sdeclName :: Name
+  , sdeclArgs :: [(Name,Ty)]  
+  , sdeclType :: Ty
+  , sdeclBody :: a
+  }
+  | SType { sinTypeName::Name
+          , sinTypeVal::Ty}
+  deriving (Show, Functor)
+
 
 -- | AST de los términos. 
 --   - info es información extra que puede llevar cada nodo. 
@@ -111,6 +129,19 @@ getInfo (Fix i _ _ _ _ _ ) = i
 getInfo (IfZ i _ _ _     ) = i
 getInfo (Let i _ _ _ _   ) = i
 getInfo (BinaryOp i _ _ _) = i
+
+-- | Obtiene la info en la raíz del término.
+sgetInfo :: STm info ty var -> info
+sgetInfo (SV     i _       ) = i
+sgetInfo (SConst i _       ) = i
+sgetInfo (SLam i _ _     ) = i
+sgetInfo (SApp   i _ _     ) = i
+sgetInfo (SPrint i _ _     ) = i
+sgetInfo (SFix i _ _ _ ) = i
+sgetInfo (SIfZ i _ _ _     ) = i
+sgetInfo (SLet i _ _ _ _ _ _) = i
+sgetInfo (SBinaryOp i _ _ _) = i
+
 
 getTy :: TTerm -> Ty
 getTy = snd . getInfo

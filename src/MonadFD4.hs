@@ -33,6 +33,7 @@ module MonadFD4 (
   failFD4,
   addDecl,
   catchErrors,
+  getSinTypEnv,
   MonadFD4,
   module Control.Monad.Except,
   module Control.Monad.State)
@@ -141,3 +142,8 @@ runFD4' c conf =  runExceptT $ runStateT (runReaderT c conf)  initialEnv
 
 runFD4:: FD4 a -> Conf -> IO (Either Error a)
 runFD4 c conf = fmap fst <$> runFD4' c conf
+
+getSinTypEnv :: MonadFD4 m => m ([(Name,Ty)])
+getSinTypEnv = do s<- get
+                  return $ tySin s
+
