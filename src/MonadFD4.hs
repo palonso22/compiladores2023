@@ -34,6 +34,8 @@ module MonadFD4 (
   addDecl,
   catchErrors,
   getSinTypEnv,
+  lookupSinTy,
+  addSinType,  
   MonadFD4,
   module Control.Monad.Except,
   module Control.Monad.State)
@@ -146,4 +148,15 @@ runFD4 c conf = fmap fst <$> runFD4' c conf
 getSinTypEnv :: MonadFD4 m => m ([(Name,Ty)])
 getSinTypEnv = do s<- get
                   return $ tySin s
+
+
+-- implementado por nosotros
+lookupSinTy :: MonadFD4 m => Name -> m (Maybe Ty)
+lookupSinTy nm = do
+      s <- get
+      return $ lookup nm (tySin s)
+
+-- Agrege un sinonimo de tipo al entorno
+addSinType :: MonadFD4 m => Name -> Ty -> m ()
+addSinType n t = modify (\s -> s { tySin = (n,t) : tySin s })
 

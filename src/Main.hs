@@ -30,7 +30,7 @@ import Global
 import Errors
 import Lang
 import Parse ( P, tm, program, declOrTm, runP )
-import Elab ( elab, elabDecl )
+import Elab ( elab, elabDecl, desugarType )
 import Eval ( eval )
 import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
@@ -135,7 +135,7 @@ evalDecl (Decl p x e) = do
     return (Decl p x e')
 
 handleDecl ::  MonadFD4 m => SDecl STerm -> m ()
-handleDecl sd = do
+handleDecl sd@SDecl {} = do
         m <- getMode
         case m of
           Interactive -> do
@@ -161,6 +161,16 @@ handleDecl sd = do
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Decl TTerm)
         typecheckDecl ssd =  do d <- elabDecl ssd 
                                 tcDecl  d
+
+handleDecl st@SType {} = do
+    let n = sinTypeName st
+        v = sinTypeVal st
+    res <- lookupSinTy n
+    case res of
+        Just _ -> failFD4 $ "La variable de tipo "++n++" ya fue definida"
+        Nothing -> do v' <- desugarType v                        
+                      addSinType n v'
+                      return ()                            
 
 
 data Command = Compile CompileForm

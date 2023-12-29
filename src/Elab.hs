@@ -11,7 +11,7 @@ Este módulo permite elaborar términos y declaraciones para convertirlas desde
 fully named (@STerm) a locally closed (@Term@)
 -}
 
-module Elab ( elab, elabDecl) where
+module Elab ( elab, elabDecl, desugarType) where
 
 import Lang
 import Subst
@@ -20,43 +20,71 @@ import MonadFD4
 -- | 'elab' transforma variables ligadas en índices de de Bruijn
 -- en un término dado. 
 elab :: MonadFD4 m => STerm -> m Term
-elab t = return $ elab' [] t
+elab t = elab' [] t
 
-elab' :: [Name] -> STerm -> Term
+elab' :: MonadFD4 m => [Name] -> STerm -> m Term
 elab' env (SV p v) =
   -- Tenemos que ver si la variable es Global o es un nombre local
   -- En env llevamos la lista de nombres locales.
-  if v `elem` env
-    then  V p (Free v)
-    else V p (Global v)
+  return $ if v `elem` env then  V p (Free v)
+                           else V p (Global v)
 
-elab' _ (SConst p c) = Const p c
+elab' _ (SConst p c) = return $ Const p c
 
-elab' env (SLam p [(v,ty)] t) = Lam p v ty (close v (elab' (v:env) t))
-elab' env (SLam p ((v,ty):vars) t) = Lam p v ty (close v (elab' (v:env) (SLam p vars t)))
+elab' env (SLam p [(v,st)] t) = do ty <- desugarType st
+                                   t' <- elab' (v:env) t
+                                   return $ Lam p v ty (close v t')
 
-elab' env (SFix p (f,fty) [(x,xty)] t) = Fix p f fty x xty (close2 f x (elab' (x:f:env) t))
-elab' env (SIfZ p c t e)         = IfZ p (elab' env c) (elab' env t) (elab' env e)
+elab' env (SLam p ((v,st):vars) t) = do ty <- desugarType st
+                                        t' <- elab' env $ SLam p vars t
+                                        return $ Lam p v ty (close v t')
+
+elab' env (SFix p (f,sfty) [(x,sxty)] t) = do
+                          fty <- desugarType sfty
+                          xty <- desugarType sxty
+                          t' <- elab' (x:f:env) t
+                          return $ Fix p f fty x xty (close2 f x t')
+elab' env (SIfZ p c t e)         = do
+                         c' <- elab' env c
+                         t' <- elab' env t
+                         e' <- elab' env e
+                         return $ IfZ p c' t' e'
 -- Operadores binarios
-elab' env (SBinaryOp i o t u) = BinaryOp i o (elab' env t) (elab' env u)
+elab' env (SBinaryOp i o t u) = do
+                          t' <- elab' env t
+                          u' <- elab' env u
+                          return $ BinaryOp i o t' u'
 -- Operador Print
-elab' env (SPrint i str t) = Print i str (elab' env t)
+elab' env (SPrint i str t) = do
+                      t' <- elab' env t
+                      return $ Print i str t'
 -- Aplicaciones generales
-elab' env (SApp p h a) = App p (elab' env h) (elab' env a)
+elab' env (SApp p h a) = do
+                      h' <- elab' env h
+                      a' <- elab' env a
+                      return $ App p h' a'
 
-elab' env (SLet i rec n ls t def body)
-  | null ls = Let i n t (elab' env def)  (close n (elab' (n:env) body))
+elab' env (SLet i rec n ls tr def body)
+  | null ls = do
+            def' <- elab' env def
+            body' <- elab' (n:env) body
+            tr' <- desugarType tr
+            return $ Let i n tr' def'  (close n body')
 
   | not rec = let fun = SLam i ls def
-              in Let i n (buildType $ ls ++ [("",t)]) (elab' env fun) (close n (elab' (n:env) body))
+              in do fun' <- elab' env fun
+                    body' <- elab' (n:env) body
+                    fulltype <- desugarTypeList $ map snd ls ++ [tr]
+                    return $ Let i n fulltype fun' (close n body')
 
-  | otherwise = case ls of
-                    [(a,ta)] -> let fix = SFix i (n,t) [(a,ta)] def
-                                in Let i n (FunTy ta t) (elab' env fix)  (close n (elab' (n:env)  body))
-
-                    (v:vs)->  let fun = SLam i vs def
-                              in elab' env $ SLet i rec n [v] (FunTy (buildType vs) t) fun body
-
+  | otherwise = do let (v, tv) = head ls
+                   tv' <- desugarType tv
+                   fulltype <- desugarTypeList $ map snd ls ++ [tr]
+                   let sfix = SFix i (n,fulltype) ls def
+                   sfix' <- elab' env sfix
+                   body' <- elab' (n:v:env) body
+                   let Sc2 cbody' = close2 n v body'
+                   return $ Let i n fulltype sfix' (Sc1 cbody')
 
 elabDecl :: MonadFD4 m => SDecl STerm -> m (Decl Term)
 elabDecl decl = let pos = sdeclPos decl
@@ -72,12 +100,12 @@ elabDecl decl = let pos = sdeclPos decl
                     _ -> if not rec then do let slam = SLam info args body
                                             lam <- elab slam
                                             return $ Decl pos name lam
-                         
-                         else do  typNoSugar <- desugarTypeList $ (snd $ unzip args) ++ [typ]
-                                  let (v,tv) = head args                                     
+
+                         else do  typNoSugar <- desugarTypeList $ map snd args ++ [typ]
+                                  let (v,tv) = head args
                                       sfix = SFix pos (name,typNoSugar) args body
-                                  fix <- elab sfix
-                                  return $ Decl pos name fix   
+                                  sfix' <- elab sfix
+                                  return $ Decl pos name sfix'
 
 -- se consideran listas con al menos un argumento
 buildType :: [(Name,Ty)] -> Ty
@@ -89,17 +117,17 @@ buildType ((_,t):ts) = FunTy t  $ buildType ts
 -- desugarea sinonimos de tipo
 desugarTypeList :: MonadFD4 m => [Ty] -> m Ty
 desugarTypeList [t] = desugarType t
-desugarTypeList (t:ts) = do t' <- desugarType t 
-                            ts' <- desugarTypeList ts    
+desugarTypeList (t:ts) = do t' <- desugarType t
+                            ts' <- desugarTypeList ts
                             return $ FunTy t' ts'
 
 --Chequea si un tipo t esta bien definido y lo convierte si usa sinonimos
 desugarType::MonadFD4 m => Ty-> m Ty
-desugarType NatTy = return NatTy 
+desugarType NatTy = return NatTy
 desugarType (SinTy n) = do e <- getSinTypEnv
                            let val = lookup n e
-                           case val of 
-                               Nothing -> failFD4 $ "El tipo "++n++" no esta definido"                                             
+                           case val of
+                               Nothing -> failFD4 $ "El tipo "++n++" no esta definido"
                                Just t -> return t
 desugarType (FunTy t ty) = do t'<-desugarType t
                               ty'<-desugarType ty

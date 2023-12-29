@@ -83,16 +83,15 @@ getPos = do pos <- getPosition
             return $ Pos (sourceLine pos) (sourceColumn pos)
 
 tyatom :: P Ty
-tyatom = (reserved "Nat" >> return NatTy)
+tyatom = do reserved "Nat" >> return NatTy
+         <|> (varST >>= \n->return $ SinTy n)
          <|> parens typeP
 
 typeP :: P Ty
-typeP = try (do 
-          x <- tyatom
-          reservedOp "->"
-          y <- typeP
-          return (FunTy x y))
-      <|> tyatom
+typeP = try (do x <- tyatom
+                reservedOp "->"
+                FunTy x <$> typeP)
+        <|> tyatom
           
 const :: P Const
 const = CNat <$> num
@@ -210,7 +209,8 @@ decl = do
      reservedOp ":"
      ty <-  typeP
      reservedOp "="
-     SDecl i b name ls' ty <$> expr
+     e <- expr
+     return $ SDecl i b name ls' ty e
 
 -- | Parser de programas (listas de declaraciones) 
 program :: P [SDecl STerm]
