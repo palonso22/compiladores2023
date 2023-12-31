@@ -26,8 +26,9 @@ elab' :: MonadFD4 m => [Name] -> STerm -> m Term
 elab' env (SV p v) =
   -- Tenemos que ver si la variable es Global o es un nombre local
   -- En env llevamos la lista de nombres locales.
-  return $ if v `elem` env then  V p (Free v)
-                           else V p (Global v)
+
+  if v `elem` env then  return $ V p (Free v)
+                        else return $ V p (Global v)
 
 elab' _ (SConst p c) = return $ Const p c
 
@@ -36,14 +37,19 @@ elab' env (SLam p [(v,st)] t) = do ty <- desugarType st
                                    return $ Lam p v ty (close v t')
 
 elab' env (SLam p ((v,st):vars) t) = do ty <- desugarType st
-                                        t' <- elab' env $ SLam p vars t
+                                        t' <- elab' (v:env) (SLam p vars t)
                                         return $ Lam p v ty (close v t')
 
-elab' env (SFix p (f,sfty) [(x,sxty)] t) = do
+elab' env (SFix p (f,sfty) ((x,sxty):vs) t) = do
                           fty <- desugarType sfty
                           xty <- desugarType sxty
-                          t' <- elab' (x:f:env) t
-                          return $ Fix p f fty x xty (close2 f x t')
+                          if null vs then do t' <- elab' (x:f:env) t
+                                             return $ Fix p f fty x xty (close2 f x t')
+                          else do let slam = SLam p vs t 
+                                  slam' <- elab' (f:x:env) slam 
+                                  return $ Fix p f fty x xty (close2 f x slam')
+
+
 elab' env (SIfZ p c t e)         = do
                          c' <- elab' env c
                          t' <- elab' env t
@@ -85,6 +91,9 @@ elab' env (SLet i rec n ls tr def body)
                    body' <- elab' (n:v:env) body
                    let Sc2 cbody' = close2 n v body'
                    return $ Let i n fulltype sfix' (Sc1 cbody')
+
+
+elab' _ e = error $ "Unexpected" ++ show e                   
 
 elabDecl :: MonadFD4 m => SDecl STerm -> m (Decl Term)
 elabDecl decl = let pos = sdeclPos decl
