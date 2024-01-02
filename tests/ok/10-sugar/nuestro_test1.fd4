@@ -8,3 +8,4 @@ let rec fibo (n:Nat) : Nat = ifz n then 0
 let p1 : Nat = fibo 4
 let p2 : Nat = fibo 8
 let p3 : Nat = fibo 15
+let res : Nat = print "" p3

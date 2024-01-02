@@ -136,22 +136,21 @@ evalDecl (Decl p x e) = do
 
 handleDecl ::  MonadFD4 m => SDecl STerm -> m ()
 handleDecl sd@SDecl {} = do
-        m <- getMode
+        m <- getMode        
         case m of
           Interactive -> do
-              (Decl p x tt) <- typecheckDecl sd
+              (Decl p x tt) <- typecheckDecl sd              
               te <- eval tt
               addDecl (Decl p x te)
           Typecheck -> do
-              f <- getLastFile
-              printFD4 ("Chequeando tipos de "++f)
+              f <- getLastFile              
               td <- typecheckDecl sd
               addDecl td
               -- opt <- getOpt
               -- td' <- if opt then optimize td else td
               ppterm <- ppDecl td  --td'
               printFD4 ppterm
-          Eval -> do
+          Eval -> do              
               td <- typecheckDecl sd
               -- td' <- if opt then optimizeDecl td else return td
               ed <- evalDecl td

@@ -7,4 +7,4 @@ let suma5 : Nat -> Nat = suma 5
 let rec countdown (n:Nat) : Nat = 
     ifz n then 0 else countdown (n- 1)
 
-let ans:Nat = countdown 345 + 7
+let ans:Nat = print "" (countdown 345 + 7)

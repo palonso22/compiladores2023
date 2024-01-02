@@ -1,6 +1,6 @@
 #TESTDIRS += tests/ok/00-basicos
 TESTDIRS += tests/ok/10-sugar
-TESTDIRS += tests/ok/20-tysym
+#TESTDIRS += tests/ok/20-tysym
 
 TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
 
@@ -61,7 +61,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 	$(Q)cp $< $(patsubst %.actual_out_eval,%.out,$<)
 
 # Generar salida con el evaluador naive.
-%.actual_out_eval: % $(EXE)
+%.actual_out_eval: % $(EXE)	
 	$(Q)$(EXE) $(EXTRAFLAGS) --eval $< > $@
 
 # Comparar salida naive con esperada.

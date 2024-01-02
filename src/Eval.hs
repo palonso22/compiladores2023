@@ -28,7 +28,7 @@ eval (V _ (Global nm)) = do
   -- unfold and keep going
   mtm <- lookupDecl nm
   case mtm of
-    Nothing -> failFD4 $ "Error de ejecución: variable no declarada: " ++ ppName nm
+    Nothing -> failFD4 $ "Error de ejecución: variable no declarada3: " ++ ppName nm
     Just t -> eval t
 
 eval (App p l r) = do

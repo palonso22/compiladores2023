@@ -36,5 +36,4 @@ let f2 (x : Nat) : Nat = x + 5
 let f1 (x : Nat) : Nat = f2 x
 
 let x : Nat = ifz DEBUG then f2 5 else f1 (2 + 3)
-
-let n3 : Nat = ack 3 2 + n2 + x
+let n3 : Nat = print "" (ack 3 2 + n2 + x)

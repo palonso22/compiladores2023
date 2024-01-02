@@ -37,4 +37,4 @@ let rec len(xs:Nat):Nat =
 
 let l:Nat = add 6 (add 7 (add 8 0))
 
-let length : Nat = len l
+let length : Nat = print "" (len l)

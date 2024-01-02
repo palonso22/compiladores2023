@@ -92,4 +92,4 @@ let rec reverseAux(xs ys:Nat) :Nat =
 
 #let res : Nat = reverse l
 
-let sorted:Nat = mergeSort xs2
+let sorted:Nat = print "" (mergeSort xs2)

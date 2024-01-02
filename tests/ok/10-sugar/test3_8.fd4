@@ -33,4 +33,4 @@ let rec fact (x:Nat) : Nat =
         then 1
         else mult x (fact (pred x))
 
-let res : Nat = fib (resta (mult (fact 4) (exp 2 3)) 187)
+let res : Nat = print "" (fib (resta (mult (fact 4) (exp 2 3)) 187))

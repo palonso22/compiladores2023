@@ -27,10 +27,10 @@ tc :: MonadFD4 m => Term         -- ^ término a chequear
                  -> m TTerm        -- ^ tipo del término
 tc (V p (Bound _)) _ = failPosFD4 p "typecheck: No deberia haber variables Bound"
 tc (V p (Free n)) bs = case lookup n bs of
-                           Nothing -> failPosFD4 p $ "Variable no declarada "++ppName n
+                           Nothing -> failPosFD4 p $ "Variable1 no declarada "++ppName n
                            Just ty -> return (V (p,ty) (Free n)) 
 tc (V p (Global n)) bs = case lookup n bs of
-                           Nothing -> failPosFD4 p $ "Variable no declarada "++ppName n
+                           Nothing -> failPosFD4 p $ "Variable2 no declarada "++ppName n
                            Just ty -> return (V (p,ty) (Global n))
 tc (Const p (CNat n)) _ = return (Const (p,NatTy) (CNat n))
 tc (Print p str t) bs = do 

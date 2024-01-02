@@ -34,5 +34,5 @@ let rec map(f:Nat->Nat)(xs:Nat):Nat =
 
 let l:Nat = snoc 3 (snoc 2 (snoc 1 0))
 
-let sm:Nat = map (mult 2) l
+let sm:Nat = print "" (map (mult 2) l)
 

@@ -33,4 +33,4 @@ let l:Nat = add 3 (add 4 (add 5 0))
 let rec foldr(xs b:Nat)(f:Nat->Nat->Nat) : Nat =
     ifz xs then b else f (head xs) (foldr (tail xs) b f)
 
-let f:Nat = foldr l 1 mult 
+let f:Nat = print "" (foldr l 1 mult )

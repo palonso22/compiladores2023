@@ -37,4 +37,4 @@ let rec sum(xs : Nat):Nat =
 
 let l:Nat = add 6 (add 7 (add 8 0))
 
-let res : Nat = sum l
+let res : Nat = print "" (sum l)

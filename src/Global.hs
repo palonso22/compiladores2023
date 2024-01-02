@@ -32,6 +32,7 @@ data Mode =
     Interactive
   | Typecheck
   | Eval
+  deriving Show  
   -- | InteractiveCEK
   -- | Bytecompile
   -- | RunVM
@@ -39,6 +40,7 @@ data Mode =
   -- | Canon
   -- | Assembler
   -- | Build
+
 data Conf = Conf {
     opt :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
     modo :: Mode

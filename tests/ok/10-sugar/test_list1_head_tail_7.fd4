@@ -36,5 +36,5 @@ let snoc(xs n:Nat):Nat =
 
 let l:Nat = snoc (snoc (snoc 0 8) 7) 6
 
-let h:Nat = head (tail l)
+let h:Nat = print "" (head (tail l))
 
