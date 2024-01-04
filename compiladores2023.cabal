@@ -40,6 +40,7 @@ executable compiladores2023
         Parse
         Subst
         TypeChecker
+        CEK
 
     ghc-options: 
         -threaded 

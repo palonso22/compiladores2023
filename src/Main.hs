@@ -35,6 +35,7 @@ import Eval ( eval )
 import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
+import CEK(search)
 
 prompt :: String
 prompt = "FD4> "
@@ -45,7 +46,7 @@ prompt = "FD4> "
 parseMode :: Parser (Mode,Bool)
 parseMode = (,) <$>
       (flag' Typecheck ( long "typecheck" <> short 't' <> help "Chequear tipos e imprimir el término")
-  -- <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
+      <|> flag' InteractiveCEK (long "interactiveCEK" <> short 'k' <> help "Ejecutar interactivamente en la CEK")
   -- <|> flag' Bytecompile (long "bytecompile" <> short 'm' <> help "Compilar a la BVM")
   -- <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
@@ -134,6 +135,12 @@ evalDecl (Decl p x e) = do
     e' <- eval e
     return (Decl p x e')
 
+evalCEKDecl :: MonadFD4 m => Decl TTerm -> m (Decl Val)
+evalCEKDecl (Decl p x e) = do
+    e' <- search e [] []
+    return (Decl p x e')
+
+
 handleDecl ::  MonadFD4 m => SDecl STerm -> m ()
 handleDecl sd@SDecl {} = do
         m <- getMode        
@@ -150,17 +157,23 @@ handleDecl sd@SDecl {} = do
               -- td' <- if opt then optimize td else td
               ppterm <- ppDecl td  --td'
               printFD4 ppterm
-          Eval -> do              
-              td <- typecheckDecl sd
+          Eval -> do             
+              td <- typecheckDecl sd              
               -- td' <- if opt then optimizeDecl td else return td
               ed <- evalDecl td
               addDecl ed
+          InteractiveCEK -> do
+            td <- typecheckDecl sd            
+              -- td' <- if opt then optimizeDecl td else return td
+            ed <- evalCEKDecl  td
+            addCEKDecl ed
+
 
       where
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Decl TTerm)
         typecheckDecl ssd =  do d <- elabDecl ssd 
                                 tcDecl  d
-
+                                
 handleDecl st@SType {} = do
     let n = sinTypeName st
         v = sinTypeVal st

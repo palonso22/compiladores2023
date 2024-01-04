@@ -18,12 +18,13 @@ data GlEnv = GlEnv {
   lfile :: String,      -- ^ Último archivo cargado.
   cantDecl :: Int,      -- ^ Cantidad de declaraciones desde la última carga
   glb :: [Decl TTerm],  -- ^ Entorno con declaraciones globales
-  tySin :: [(Name,Ty)]    -- ^ Entorno de sinonimos de tipo
+  tySin :: [(Name,Ty)],    -- ^ Entorno de sinonimos de tipo
+  glbCEK :: [Decl Val]
 }
 
 -- ^ Entorno de tipado de declaraciones globales
 tyEnv :: GlEnv ->  [(Name,Ty)]
-tyEnv g = map (\(Decl _ n b) -> (n, getTy b))  (glb g)
+tyEnv g = map (\(Decl _ n b) -> (n, getTy b))  (glb g) ++ map (\(Decl _ n b) -> (n, getTyCEK b))  (glbCEK g)
 
 {-
  Tipo para representar las banderas disponibles en línea de comando.
@@ -31,15 +32,15 @@ tyEnv g = map (\(Decl _ n b) -> (n, getTy b))  (glb g)
 data Mode =
     Interactive
   | Typecheck
-  | Eval
-  deriving Show  
-  -- | InteractiveCEK
+  | Eval  
+  | InteractiveCEK
   -- | Bytecompile
   -- | RunVM
   -- | CC
   -- | Canon
   -- | Assembler
   -- | Build
+  deriving Show  
 
 data Conf = Conf {
     opt :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
@@ -48,4 +49,4 @@ data Conf = Conf {
 
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv False "" 0 [] []
+initialEnv = GlEnv False "" 0 [] [] []

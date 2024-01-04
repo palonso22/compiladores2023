@@ -111,6 +111,9 @@ newtype Scope info var = Sc1 (Tm info var)
   deriving Functor
 newtype Scope2 info var = Sc2 (Tm info var)
   deriving Functor
+
+
+
     
 instance (Show info, Show var) => Show (Scope info var) where
     show (Sc1 t) = "{"++show t++"}"
@@ -130,6 +133,7 @@ getInfo (IfZ i _ _ _     ) = i
 getInfo (Let i _ _ _ _   ) = i
 getInfo (BinaryOp i _ _ _) = i
 
+
 -- | Obtiene la info en la raíz del término.
 sgetInfo :: STm info ty var -> info
 sgetInfo (SV     i _       ) = i
@@ -145,6 +149,8 @@ sgetInfo (SBinaryOp i _ _ _) = i
 
 getTy :: TTerm -> Ty
 getTy = snd . getInfo
+
+
 
 getPos :: TTerm -> Pos
 getPos = fst . getInfo
@@ -175,3 +181,47 @@ freeVars tm = nubSort $ go tm [] where
   go (IfZ _ c t e             ) xs = go c $ go t $ go e xs
   go (Const _ _               ) xs = xs
   go (Let _ _ _ e (Sc1 t)     ) xs = go e (go t xs)
+
+
+fromScope::Scope info var -> Tm info var
+fromScope (Sc1 t) = t
+
+toScope:: Tm info var -> Scope info var
+toScope t = Sc1 t
+
+fromScope2::Scope2 info var -> Tm info var
+fromScope2 (Sc2 t) = t
+
+toScope2:: Tm info var -> Scope2 info var
+toScope2 t = Sc2 t
+
+
+-- CEK
+
+-- Tipo de datos para maquina CEK  
+--Valores
+
+data Val = N Int | Clos Closure deriving Show
+type Env = [Val]
+
+
+data Closure = ClosFun Ty Env Name Ty TTerm | ClosFix Ty Env Name Ty Name Ty TTerm  deriving Show
+
+
+data Frame   = FrAp  Env TTerm
+           | FrClos  Closure
+           | FrOpTer  Env BinaryOp TTerm
+           | FrOpVal  BinaryOp Val
+           | FrPrint  String
+           | FrIf  Env TTerm TTerm
+           | FrLet Env TTerm
+           deriving Show
+
+-- Continuaciones
+type Kont = [Frame]
+
+
+getTyCEK :: Val -> Ty
+getTyCEK (N  _       ) = NatTy
+getTyCEK (Clos (ClosFun ty _ _ _ _)) = ty
+getTyCEK (Clos (ClosFix ty _ _ _ _ _ _)) = ty 
