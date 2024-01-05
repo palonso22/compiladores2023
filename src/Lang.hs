@@ -112,9 +112,6 @@ newtype Scope info var = Sc1 (Tm info var)
 newtype Scope2 info var = Sc2 (Tm info var)
   deriving Functor
 
-
-
-    
 instance (Show info, Show var) => Show (Scope info var) where
     show (Sc1 t) = "{"++show t++"}"
 
@@ -133,7 +130,6 @@ getInfo (IfZ i _ _ _     ) = i
 getInfo (Let i _ _ _ _   ) = i
 getInfo (BinaryOp i _ _ _) = i
 
-
 -- | Obtiene la info en la raíz del término.
 sgetInfo :: STm info ty var -> info
 sgetInfo (SV     i _       ) = i
@@ -149,8 +145,6 @@ sgetInfo (SBinaryOp i _ _ _) = i
 
 getTy :: TTerm -> Ty
 getTy = snd . getInfo
-
-
 
 getPos :: TTerm -> Pos
 getPos = fst . getInfo

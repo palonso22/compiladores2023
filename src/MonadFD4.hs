@@ -20,6 +20,7 @@ module MonadFD4 (
   FD4,
   runFD4,
   lookupDecl,
+  lookupDecl2,
   lookupCEKDecl,
   lookupTy,
   printFD4,
@@ -115,6 +116,16 @@ lookupDecl nm = do
        [] -> return Nothing
    where hasName :: Name -> Decl a -> Bool
          hasName nm (Decl { declName = nm' }) = nm == nm'
+
+lookupDecl2 :: MonadFD4 m => Name -> m (Maybe (Decl TTerm))
+lookupDecl2 nm = do
+     s <- get
+     case filter (hasName nm) (glb s) of
+       d:_ -> return (Just d)
+       [] -> return Nothing
+   where hasName :: Name -> Decl a -> Bool
+         hasName nm (Decl { declName = nm' }) = nm == nm'
+
 
 lookupCEKDecl :: MonadFD4 m => Name -> m (Maybe Val)
 lookupCEKDecl nm = do
