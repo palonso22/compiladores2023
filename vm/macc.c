@@ -308,6 +308,12 @@ void run(code init_c)
 			break;
 		}
 
+		case JUMP: {
+			int offset = *c++;
+			c += offset;
+			break;
+		}
+
 		case FUNCTION: {
 			/*
 			 * Un lambda, es un valor! Armamos una clausura
