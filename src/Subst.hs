@@ -71,6 +71,21 @@ subst n (Sc1 m) = varChanger (\_ p n -> V p (Free n)) bnd m
              | i == depth = n
              | otherwise  = abort "substN: M is not LC"
 
+
+-- `openN [nn,..,n0] t` reemplaza las primeras (n+1) variables ligadas
+-- en `t` (que debe ser localmente cerrado) por los nombres libres en la
+-- lista. La variable Bound 0 pasa a ser Free n0, y etc. Estos nombres
+-- deben ser frescos en el término para que no ocurra shadowing.
+openN :: [Name] -> Tm info Var -> Tm info Var
+openN ns = varChanger (\_ p n -> V p (Free n)) bnd where
+   bnd depth p i | i <  depth = V p (Bound i)
+                 | i >= depth && i < depth + nns =
+                    V p (Free (nsr !! (i - depth)))
+                 | otherwise  = abort "openN: M is not LC"
+   nns = length ns
+   nsr = reverse ns
+
+
 -- `subst2 u1 u2 t1 sustituye índice de de Bruijn 0 en t por u1 y el índice 1 por u2. 
 -- Notar que t es un Scope con dos índices que escapan el término.
 subst2 :: Tm info Var -> Tm info Var -> Scope2 info Var -> Tm info Var
