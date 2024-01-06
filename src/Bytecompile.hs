@@ -77,8 +77,6 @@ pattern JUMP     = 15
 pattern TAILCALL = 16
 pattern IFSTOP   = 17
 
-
-
 --función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
 showOps [] = []

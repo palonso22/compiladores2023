@@ -41,6 +41,7 @@ enum {
 	IFSTOP   = 17
 };
 
+
 #define quit(...)							\
 	do {								\
 		fprintf(stderr, __VA_ARGS__);				\
@@ -195,8 +196,17 @@ void run(code init_c)
 		/* Consumimos un opcode y lo inspeccionamos. */
 		switch(*c++) {
 		case ACCESS: {
-			/* implementame */
-			abort();
+			/* Acceso a una variable: leemos el entero
+			 * siguiente que representa el índice y recorremos
+			 * el entorno hasta llegar a su binding. */
+			int i = *c++;
+			env ee = e;
+			while (i--)
+				ee = ee->next;
+
+			/* Lo ponemos en la pila */
+			*s++ = ee->v;
+			break;
 		}
 
 		case CONST: {
@@ -233,7 +243,7 @@ void run(code init_c)
 			 * de retorno (junto a su entorno). Saltamos a la
 			 * dirección de retorno y a su entorno, pero dejamos el
 			 * valor de retorno en la pila.
-			 */
+			 */			
 			value rv = *--s;
 
 			struct clo ret_addr = (*--s).clo;
@@ -252,7 +262,7 @@ void run(code init_c)
 			 * La idea es saltar a la clausura extendiendo su
 			 * entorno con el valor de la aplicación, pero
 			 * tenemos que guardar nuestra dirección de retorno.
-			 */
+			 */			
 			value arg = *--s;
 			value fun = *--s;
 
@@ -346,31 +356,33 @@ void run(code init_c)
 			break;
 		}
 
-		case STOP: {
+		case STOP: {			
 			return;
 		}
 
 		case SHIFT: {
-			/* implementame */
-			abort();
-		}
-
-		case DROP: {
-			/* implementame */
-			abort();
-		}
-
-		case PRINTN: {
-			uint32_t i = s[-1].i;
-			wprintf(L"%" PRIu32 "\n", i);
+			value v = *--s;
+			e = env_push(e, v);
 			break;
 		}
 
-		case PRINT: {
-			wchar_t wc;
-			while ((wc = *c++))
-				putwchar(wc);
+		case DROP: {
+			e = e->next;
+			break;
+		}
 
+		case PRINTN: {			
+			uint32_t i = s[-1].i;			
+			printf("%d\n", i);
+			break;
+		}
+
+		case PRINT: {			
+			while(*c) {
+		   		wchar_t x = *c++;
+		   		putwchar(x);
+		  	}
+		  	c++;
 			break;
 		}
 
@@ -418,7 +430,6 @@ int main(int argc, char **argv)
 	codeptr = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (!codeptr)
 		quit("mmap");
-
 	/* Llamamos a la máquina */
 	run(codeptr);
 
