@@ -38,6 +38,7 @@ enum {
 	PRINTN   = 14,
 	JUMP     = 15,
 	TAILCALL = 16,
+	IFSTOP   = 17
 };
 
 #define quit(...)							\
@@ -268,8 +269,33 @@ void run(code init_c)
 		}
 
 		case TAILCALL: {
-			/* implementame */
-			abort();
+			value arg = *--s;
+			value funEnv = *--s;			
+			e = funEnv.clo.clo_env;
+			e = env_push(e,arg);
+			c = funEnv.clo.clo_body;
+			break;
+		}
+
+		case CJUMP: {
+			value ctos;
+			ctos.i = *c++;						
+			value env;			
+			struct clo clos = { .clo_env = e, .clo_body = NULL };
+			env.clo = clos;
+			*s++ = ctos;
+			*s++ = env;
+			break;
+        }
+
+		case IFSTOP: {
+			value cond = *--s;	
+			e = (*--s).clo.clo_env;
+			int ctos = (*--s).i;
+			if(cond.i != 0){				
+				c += ctos;			
+			}			
+			break;
 		}
 
 		case FUNCTION: {
