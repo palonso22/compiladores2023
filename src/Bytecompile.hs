@@ -77,6 +77,25 @@ pattern JUMP     = 15
 pattern TAILCALL = 16
 pattern IFSTOP   = 17
 
+tailCallOpt :: MonadFD4 m => TTerm -> m Bytecode
+
+tailCallOpt (App _ t1 t2) = do bcT1 <- bcc t1
+                               bcT2 <- bcc t2
+                               return $ bcT1 ++ bcT2 ++ [TAILCALL]
+
+tailCallOpt (IfZ _ z t1 t2) = do bcz <- bcc z                             
+                                 tc1 <- tailCallOpt t1
+                                 tc2 <- tailCallOpt t2
+                                 return $ [IFZ,length tc1 + 2] ++ bcz ++ [IFSTOP] ++ tc1 ++ [JUMP,length tc2] ++ tc2                            
+
+tailCallOpt (Let _ _ ty m n) = do bcM <- bcc m
+                                  tcN <- tailCallOpt (fromScope n)
+                                  return $ bcM ++ [SHIFT] ++ tcN
+
+tailCallOpt t = do bcT <- bcc t                                     
+                   return $ bcT ++ [RETURN]
+
+
 --función util para debugging: muestra el Bytecode de forma más legible.
 showOps :: Bytecode -> [String]
 showOps [] = []
@@ -106,8 +125,9 @@ bcc :: MonadFD4 m => TTerm -> m Bytecode
 bcc (V _ (Bound i)) = return [ACCESS,i]
 bcc (Const _ (CNat n)) = return [CONST,n]
 
-bcc (Lam _ n ty t) = do -- bt <- tailCallOpt t -- para correr runVM comentar
-                       bt <- bcc (fromScope t) -- para correr runVM descomentar
+bcc (Lam _ n ty t) = do
+                       bt <- tailCallOpt (fromScope t)
+                       -- bt <- bcc (fromScope t) -- para correr runVM descomentar
                        return $ [FUNCTION,length bt + 1] ++ bt ++ [RETURN]
 
 bcc (App _ t1 t2) = do
@@ -228,7 +248,10 @@ runBC' (SUB:c) e (I n1:I n2:s) = do let res = max (n2-n1) 0
 
 runBC' (CALL:c) e (v:Fun ef cf :s)  = runBC' cf (v:ef) (RA e c:s)
 
-runBC' (IFZ:ctos:c) e s  = runBC' c e (RA e []:I ctos:s)
+runBC' (TAILCALL:c) e (v:Fun ef cf :s)  = runBC' cf (v:ef) s
+
+
+runBC' (IFZ:ctos:c) e s  = do runBC' c e (RA e []:I ctos:s)
 
 runBC' (IFSTOP:c) _ (I k:RA e _:I ctos:s) | k == 0 = runBC' c e s
                                           | otherwise = runBC' (drop ctos c) e s
