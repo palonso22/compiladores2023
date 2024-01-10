@@ -2,17 +2,16 @@ module IR where
 
 import Lang
 
-data Ir = IrVar Name
-        | IrGlobal Name
-        | IrCall Ir [Ir] IrTy
-                        -- ^ Tipo de expr final
+data Ir = IrVar Ty Name
+        | IrGlobal Ty Name
+        | IrCall Ty Ir [Ir]
         | IrConst Const
         | IrPrint String Ir
-        | IrBinaryOp BinaryOp Ir Ir 
-        | IrLet Name IrTy Ir Ir
-        | IrIfZ Ir Ir Ir
-        | MkClosure Name [Ir]
-        | IrAccess Ir IrTy Int
+        | IrBinaryOp BinaryOp Ir Ir
+        | IrLet Ty Name Ir Ty Ir
+        | IrIfZ Ty Ir Ir Ir
+        | MkClosure Ty Name [Ir]
+        | IrAccess Ir Int
   deriving Show
 
 data IrTy = IrInt
@@ -22,12 +21,11 @@ data IrTy = IrInt
 
 data IrDecl =
     IrFun { irDeclName :: Name
-          , irRetTy :: IrTy
-          , irDeclArgs :: [(Name, IrTy)]
+          , irRetTy :: Ty
+          , irDeclArgs :: [(Name, Ty)]
           , irDeclBody :: Ir
     }
   | IrVal { irDeclName :: Name
-          , irDeclTy :: IrTy
           , irDeclDef :: Ir
           }
   deriving Show
@@ -40,3 +38,16 @@ La siguiente instancia es sólo para debugging
 instance Show IrDecls where
   show (IrDecls decls) =
    concatMap (\d -> show d ++ "\n") decls
+
+
+getTypeIr :: Ir -> Ty
+getTypeIr (IrVar ty _) = ty
+getTypeIr (IrGlobal ty _) = ty
+getTypeIr (IrCall ty _ _) = ty
+getTypeIr (IrConst _) = NatTy
+getTypeIr (IrPrint _ _) = NatTy
+getTypeIr (IrBinaryOp {}) = NatTy
+getTypeIr (IrLet _ _ _ ty _) = ty
+getTypeIr (IrIfZ ty _ _ _) = ty
+getTypeIr (MkClosure {}) = ClosureTy
+getTypeIr (IrAccess _ _) = error "No tiene tipo"

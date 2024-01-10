@@ -11,7 +11,7 @@ type ClosureState a = StateT Int (Writer [IrDecl]) a
 
 closureConvert :: TTerm -> String -> [(Name,Ty)] -> [Name]  -> ClosureState Ir
 
-closureConvert (V ty v) f xs fwa =
+closureConvert (V (_,ty) v) f xs fwa =
       if  not $ isFun ty then case v of
                                 Global s -> return $ IrGlobal ty s
                                 Free s -> return $ IrVar ty s
@@ -29,7 +29,7 @@ closureConvert (BinaryOp ty op t1 t2) f xs fwa = do
       ir2 <- closureConvert t2 f xs fwa
       return $  IrBinaryOp op ir1 ir2
 
-closureConvert (IfZ ty tz tt tf) f xs fwa = do
+closureConvert (IfZ (_,ty) tz tt tf) f xs fwa = do
       ir1 <- closureConvert tz f xs fwa
       ir2 <- closureConvert tt f xs fwa
       ir3 <- closureConvert tf f xs fwa
@@ -59,7 +59,7 @@ closureConvert (Let ty2 x ty1 t1  t2) f xs fwa = do
 
 
 
-closureConvert t@(Lam typ x ty t1) f xs fwa = do
+closureConvert t@(Lam (_,typ) x ty t1) f xs fwa = do
       let tt = open x t1
       ns <- freshen [f]
       let name = head ns
@@ -86,17 +86,17 @@ closureConvert t@(Lam typ x ty t1) f xs fwa = do
 
                          _ -> (irt,x,ty)
 
-           decl = IrFun name ([("clo",ClosureTy),(x', ty')]) ret (declareFreeVars (getTypeIr irt') irt' "clo" $ reverse xs)
+           decl = IrFun name ret [("clo",ClosureTy),(x', ty')] (declareFreeVars (getTypeIr irt') irt' "clo" $ reverse xs)
 
       tell [decl]
 
       return $ MkClosure typ name [IrVar ty x | (x,ty) <- xs]
 
-closureConvert (Fix retTy ff tf x tv t) f xs fwa = do
-      let tt = openN [ff,x] t
+closureConvert (Fix (_, retTy) ff tf x tv t) f xs fwa = do
+      let tt = openN [ff,x] (fromScope2 t)
       let fClo = ff ++ "_clo"
       irt <- closureConvert tt ff ([(ff,tf), (x,tv),(fClo,ClosureTy)] ++ xs) fwa
-      let decl = IrFun ff ([(fClo,ClosureTy),(x,tv)]) retTy (declareFreeVars (getTypeIr irt) irt fClo $ reverse xs)
+      let decl = IrFun ff retTy [(fClo,ClosureTy),(x,tv)] (declareFreeVars (getTypeIr irt) irt fClo $ reverse xs)
       tell [decl]
       return $ MkClosure tf ff [IrVar t x | (x,t) <- xs]
 
@@ -186,14 +186,14 @@ fromStateToList :: Decl TTerm -> Bool -> (Name, Ty) -> [Name] -> [IrDecl]
 fromStateToList d isVal fstArg fwa =
   let dName = declName d
       (term, freeVars, ret) = case declBody d of
-                               Lam (FunTy ta ret) var tv t -> (open var t,[(var,tv)], ret)
-                               Fix (FunTy ta ret) ff tf var tv t -> (openN [ff,var] t,[(ff,tf),(var,tv),(dName ++ "_clo",ClosureTy)],ret)
-                               t -> (t,[],getInfo t)
+                               Lam (_,ty) var tv t -> (open var t,[(var,tv)], getCod ty)
+                               Fix (_,ty) ff tf var tv t -> (openN [ff,var] (fromScope2 t),[(ff,tf),(var,tv),(dName ++ "_clo",ClosureTy)],getCod ty)
+                               t -> (t,[],getTy t)
       irt = closureConvert term dName freeVars fwa
       declArg = if fst fstArg == "" then ("dummy", NatTy) else fstArg
       ((tf,_),decls) = runWriter $ runStateT irt 0
   in if isVal then decls ++ [IrVal dName tf]
-     else decls ++ [IrFun dName [(dName ++ "_clo",ClosureTy),declArg] ret tf]
+     else decls ++ [IrFun dName ret [(dName ++ "_clo",ClosureTy),declArg] tf]
 
 
 getCod :: Ty -> Ty
