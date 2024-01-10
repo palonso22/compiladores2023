@@ -57,7 +57,7 @@ fd4Main xs = pretty "uint64_t* fd4main()"
          <+> braces (nest 2 (line <> vsep (vals2doc xs ++ [pretty "return 0;"])) <> line)
   where vals2doc :: [IrDecl] -> [Doc a]
         vals2doc []               = []
-        vals2doc [IrVal n t]      = [name n <+> pretty "=" <+> voidptr <> parens (ir2doc t) <> semi, irPrintN (name n), semi]
+        vals2doc [IrVal n t]      = [name n <+> pretty "=" <+> voidptr <> parens (ir2doc t) <> semi]
         vals2doc (IrVal n t : ds) = (name n <+> pretty "=" <+> voidptr <> parens (ir2doc t) <> semi) : vals2doc ds
         vals2doc (_ : ds)         = vals2doc ds
 

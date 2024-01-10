@@ -135,7 +135,7 @@ compileFile f = do
     setInter i
     let [fs] = endBy ".fd4" f
     when (mode == Bytecompile) (bytecompileFile fs decls)
-    when (mode == CC) (bytecompileFile fs decls)
+    when (mode == CC) (ccFile fs decls)
 
 
 ccFile :: MonadFD4 m => FilePath -> [SDecl STerm] -> m()
@@ -237,9 +237,9 @@ handleDecl sd@SDecl {} = do
               td <- typecheckDecl sd
               addDecl td
 
-          _ -> error ""
-
-
+          CC -> do
+              td <- typecheckDecl sd
+              addDecl td
       where
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Decl TTerm)
         typecheckDecl ssd =  do d <- elabDecl ssd
