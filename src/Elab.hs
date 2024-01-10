@@ -11,7 +11,7 @@ Este módulo permite elaborar términos y declaraciones para convertirlas desde
 fully named (@STerm) a locally closed (@Term@)
 -}
 
-module Elab ( elab, elabDecl, desugarType) where
+module Elab ( elab, elabDecl, desugarType, desugarTypeList) where
 
 import Lang
 import Subst

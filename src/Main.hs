@@ -30,7 +30,7 @@ import Global
 import Errors
 import Lang
 import Parse ( P, tm, program, declOrTm, runP )
-import Elab ( elab, elabDecl, desugarType )
+import Elab ( elab, elabDecl, desugarType, desugarTypeList)
 import Eval ( eval )
 import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
@@ -38,6 +38,10 @@ import TypeChecker ( tc, tcDecl )
 import CEK(search)
 import Bytecompile(bytecompileModule, bcWrite, bcRead, runBC)
 import Data.List.Split (endBy)
+import IR
+import ClosureConvert(fromStateToList)
+import C(ir2C)
+import Data.Maybe (fromJust,isJust)
 
 prompt :: String
 prompt = "FD4> "
@@ -53,7 +57,7 @@ parseMode = (,) <$>
       <|> flag' RunVM (long "runVM" <> short 'r' <> help "Ejecutar bytecode en la BVM")
       <|> flag Interactive Interactive ( long "interactive" <> short 'i' <> help "Ejecutar en forma interactiva")
       <|> flag Eval        Eval        (long "eval" <> short 'e' <> help "Evaluar programa")
-  -- <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
+      <|> flag' CC ( long "cc" <> short 'c' <> help "Compilar a código C")
   -- <|> flag' Canon ( long "canon" <> short 'n' <> help "Imprimir canonicalización")
   -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
   -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
@@ -131,6 +135,38 @@ compileFile f = do
     setInter i
     let [fs] = endBy ".fd4" f
     when (mode == Bytecompile) (bytecompileFile fs decls)
+    when (mode == CC) (bytecompileFile fs decls)
+
+
+ccFile :: MonadFD4 m => FilePath -> [SDecl STerm] -> m()
+ccFile f sdecls = do
+  let sdecls' = filter isDecl sdecls -- Eliminar sinomimos de tipo
+      ns = map sdeclName sdecls'
+  decls <- mapM lookDecls ns
+  -- mapear cada declaracion con su tipo y su primer argumento si lo tiene                  
+  info <- mapM (\d -> let args = unzip $ sdeclArgs d
+                          argsTypes = snd args
+                          argsName = fst args
+                          firstArg = if null argsName then ""
+                                    else head argsName in 
+                          desugarTypeList (argsTypes ++ [sdeclType d]) >>= \t ->                                            
+
+                      return (sdeclName d, (checkIsVal t, (firstArg, firstArgType t)))) sdecls'                   
+
+  -- definir que declaraciones representan funciones sin argumentos explicitos
+  let declsWithoutArgs = filter (\d -> let infoDecl = fromJust (lookup (sdeclName d) info) in  
+                                      fst infoDecl && (fst.snd) infoDecl == "")  sdecls'                                  
+
+      funcNamesWithoutArgs = map (\d -> sdeclName d) declsWithoutArgs                                                                                                                
+
+      irDecls = concat $ map (\d ->  let infoDecl = fromJust $ lookup (declName d) info in
+                                  fromStateToList d 
+                                                  (fst infoDecl)
+                                                  (snd infoDecl)                                                                                                                                         
+                                                  funcNamesWithoutArgs) decls                                                              
+
+  liftIO $ writeFile (f ++ ".c") (ir2C (IrDecls irDecls))
+
 
 bytecompileFile :: MonadFD4 m => FilePath -> [SDecl STerm] -> m ()
 bytecompileFile f sdecls = do
@@ -139,12 +175,17 @@ bytecompileFile f sdecls = do
             bc <- bytecompileModule decls
             liftIO $ bcWrite bc $ f ++ ".bc32"
 
-    where lookDecls n = do m <- lookupDecl2 n
-                           case m of
-                              Just d -> return d
-                              Nothing -> error "esto no deberia pasar"
-          isDecl (SDecl {}) = True
-          isDecl _ = False
+
+
+lookDecls n = do  m <- lookupDecl2 n
+                  case m of
+                    Just d -> return d
+                    Nothing -> error "esto no deberia pasar"
+                      
+
+isDecl:: SDecl a -> Bool
+isDecl (SDecl {}) = True
+isDecl _ = False
 
 bytecodeRun :: MonadFD4 m => FilePath -> m()
 bytecodeRun filePath = liftIO (bcRead filePath) >>= \bc -> runBC bc
@@ -329,3 +370,12 @@ typeCheckPhrase x = do
          tt <- tc t' (tyEnv s)
          let ty = getTy tt
          printFD4 (ppTy ty)
+
+checkIsVal :: Ty -> Bool
+checkIsVal NatTy  = True
+checkIsVal _  = False
+
+firstArgType :: Ty -> Ty
+firstArgType (FunTy ty _) = ty
+firstArgType ty = ty
+
