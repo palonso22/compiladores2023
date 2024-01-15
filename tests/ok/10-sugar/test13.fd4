@@ -1,0 +1,7 @@
+let suma (x y : Nat) : Nat = x + y
+let suma1 : Nat -> Nat = suma 1
+let rec recMap (n:Nat) (f:Nat->Nat) (m:Nat) (f2:Nat ->Nat) : Nat = ifz n then m 
+                                                                   else recMap (n-1) f (f2 (f m)) f2
+
+let printer (x : Nat) : Nat = print "" x
+let ans : Nat = recMap 5 suma1  12 printer

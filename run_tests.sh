@@ -8,3 +8,4 @@ make test_all
 rm $folder*.check_*
 rm $folder*.actual_out_*
 rm $folder*.bc32
+rm $folder*.c

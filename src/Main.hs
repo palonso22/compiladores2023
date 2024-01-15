@@ -148,22 +148,19 @@ ccFile f sdecls = do
                           argsTypes = snd args
                           argsName = fst args
                           firstArg = if null argsName then ""
-                                    else head argsName in 
-                          desugarTypeList (argsTypes ++ [sdeclType d]) >>= \t ->                                            
+                                    else head argsName in
+                          desugarTypeList (argsTypes ++ [sdeclType d]) >>= \t ->
 
-                      return (sdeclName d, (checkIsVal t, (firstArg, firstArgType t)))) sdecls'                   
+                      return (sdeclName d, (checkIsVal t, (firstArg, firstArgType t)))) sdecls'
 
   -- definir que declaraciones representan funciones sin argumentos explicitos
-  let declsWithoutArgs = filter (\d -> let infoDecl = fromJust (lookup (sdeclName d) info) in  
-                                      fst infoDecl && (fst.snd) infoDecl == "")  sdecls'                                  
+  let declsWithoutArgs = filter (\d -> let infoDecl = fromJust (lookup (sdeclName d) info) in
+                                      not (fst infoDecl) && (fst.snd) infoDecl == "")  sdecls'
 
-      funcNamesWithoutArgs = map (\d -> sdeclName d) declsWithoutArgs                                                                                                                
+      funcNamesWithoutArgs = map sdeclName declsWithoutArgs      
 
-      irDecls = concat $ map (\d ->  let infoDecl = fromJust $ lookup (declName d) info in
-                                  fromStateToList d 
-                                                  (fst infoDecl)
-                                                  (snd infoDecl)                                                                                                                                         
-                                                  funcNamesWithoutArgs) decls                                                              
+      irDecls = concatMap (\d ->  let infoDecl = fromJust $ lookup (declName d) info in
+                               uncurry (fromStateToList d) infoDecl funcNamesWithoutArgs) decls
 
   liftIO $ writeFile (f ++ ".c") (ir2C (IrDecls irDecls))
 
@@ -177,11 +174,12 @@ bytecompileFile f sdecls = do
 
 
 
+lookDecls :: MonadFD4 m => Name -> m (Decl TTerm)
 lookDecls n = do  m <- lookupDecl2 n
                   case m of
                     Just d -> return d
                     Nothing -> error "esto no deberia pasar"
-                      
+
 
 isDecl:: SDecl a -> Bool
 isDecl (SDecl {}) = True

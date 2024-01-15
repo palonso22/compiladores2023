@@ -150,6 +150,8 @@ errorCase t = error $ "No consideramos este caso " ++ show t
 declareFreeVars :: Ty -> Ir -> Name -> [(Name,Ty)] -> Ir
 
 declareFreeVars = declareFreeVars' []
+
+declareFreeVars' :: [Name] -> Ty -> Ir -> Name -> [([Char], Ty)] -> Ir
 declareFreeVars' _ _ t _ [] = t
 declareFreeVars' ys tBody t clo q@((x,ty):xs) =
                                 let declaredVars = x : ys in
@@ -185,11 +187,11 @@ getClosureName n = "clo" ++ show n
 fromStateToList :: Decl TTerm -> Bool -> (Name, Ty) -> [Name] -> [IrDecl]
 fromStateToList d isVal fstArg fwa =
   let dName = declName d
-      (term, freeVars, ret) = case declBody d of
+      (term, fv, ret) = case declBody d of
                                Lam (_,ty) var tv t -> (open var t,[(var,tv)], getCod ty)
                                Fix (_,ty) ff tf var tv t -> (openN [ff,var] (fromScope2 t),[(ff,tf),(var,tv),(dName ++ "_clo",ClosureTy)],getCod ty)
                                t -> (t,[],getTy t)
-      irt = closureConvert term dName freeVars fwa
+      irt = closureConvert term dName fv fwa
       declArg = if fst fstArg == "" then ("dummy", NatTy) else fstArg
       ((tf,_),decls) = runWriter $ runStateT irt 0
   in if isVal then decls ++ [IrVal dName tf]

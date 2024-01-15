@@ -1,0 +1,12 @@
+let suma (x y z h i j : Nat) : Nat = x + y + z + h + i + j
+
+let suma1 : Nat -> Nat -> Nat -> Nat -> Nat -> Nat = suma 1
+
+let suma2 : Nat -> Nat -> Nat -> Nat -> Nat = suma1 2
+let suma3 : Nat -> Nat -> Nat -> Nat = suma2 3
+let suma4 : Nat -> Nat -> Nat = suma3 4
+let suma5 : Nat -> Nat  = suma4 5
+
+
+let ans : Nat = print "" (suma5 6)
+

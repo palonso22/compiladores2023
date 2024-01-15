@@ -1,0 +1,7 @@
+let p : Nat -> Nat = let f (x y z w: Nat) : Nat = x + y + 1 + z - w in
+                     let g : Nat -> Nat -> Nat = f 3 2 in 
+                     let q : Nat -> Nat = g 4 in q
+
+
+let ans:Nat = print "" (p 5)
+
