@@ -50,12 +50,10 @@ closureConvert (Let ty2 x ty1 t1  t2) f xs fwa = do
                     _ -> xs
 
       ir2 <- closureConvert tt f ((x,ty1):xs') fwa
-      return $ case ir1 of
-                   MkClosure _  x' _ -> let xClo = x ++ "_clo" in
-                                        IrLet ClosureTy xClo ir1 (getTypeIr ir2) $
-                                        IrLet ty1 x (IrAccess (IrVar ClosureTy xClo) 0) (getTypeIr ir2) ir2
-
-                   _ ->  IrLet (getTypeIr ir1) x ir1 (getTypeIr ir2) ir2
+      return $ if isFun ty1 then let xClo = x ++ "_clo" in
+                                     IrLet ClosureTy xClo ir1 (getTypeIr ir2) $
+                                     IrLet ty1 x (IrAccess (IrVar ClosureTy xClo) 0) (getTypeIr ir2) ir2                   
+               else  IrLet (getTypeIr ir1) x ir1 (getTypeIr ir2) ir2
 
 
 

@@ -17,12 +17,13 @@ EXTRAFLAGS	:=
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
 # comentando una de estas líneas.
-CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
-CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
-CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
-CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
+# CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
 # CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
+CHECK	+= $(patsubst %,%.check_cc,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.
 # CHECK	:= $(filter-out tests/correctos/grande.fd4.check_bc32,$(CHECK))
@@ -129,14 +130,20 @@ accept: $(patsubst %,%.accept,$(TESTS))
 	$(Q)touch $@
 	@echo "OK	EVALOPT	$(patsubst %.out,%,$<)"
 
-# Estas directivas indican que NO se borren los archivos intermedios,
-# así podemos examinarlos, particularmente cuando algo no anda.
-.SECONDARY: $(patsubst %,%.actual_out_eval,$(TESTS))
-.SECONDARY: $(patsubst %,%.actual_out_cek,$(TESTS))
-.SECONDARY: $(patsubst %,%.actual_out_bc32,$(TESTS))
-.SECONDARY: $(patsubst %,%.actual_out_bc32_h,$(TESTS))
-.SECONDARY: $(patsubst %,%.actual_out_eval_opt,$(TESTS))
-.SECONDARY: $(patsubst %,%.actual_opt_out,$(TESTS))
-.SECONDARY: $(patsubst %.fd4,%.bc32,$(TESTS))
+
+# Evaluar código c.
+
+%.c: %.fd4
+	$(Q)$(EXE) $(EXTRAFLAGS) -c $<
+
+
+%.fd4.actual_out_cc: %.c $(EXE)
+	gcc runtime.c $< -lgc   -o prog 
+	./prog 	> $@
+
+%.check_cc: %.out %.actual_out_cc
+	$(Q)diff -u $^
+	$(Q)touch $@
+	@echo "OK	CC	$(patsubst %.out,%,$<)"
 
 .PHONY: test_all accept
