@@ -52,7 +52,7 @@ closureConvert (Let ty2 x ty1 t1  t2) f xs fwa = do
       ir2 <- closureConvert tt f ((x,ty1):xs') fwa
       return $ if isFun ty1 then let xClo = x ++ "_clo" in
                                      IrLet ClosureTy xClo ir1 (getTypeIr ir2) $
-                                     IrLet ty1 x (IrAccess (IrVar ClosureTy xClo) 0) (getTypeIr ir2) ir2                   
+                                     IrLet ty1 x (IrAccess (IrVar ClosureTy xClo) 0) (getTypeIr ir2) ir2
                else  IrLet (getTypeIr ir1) x ir1 (getTypeIr ir2) ir2
 
 
@@ -193,7 +193,10 @@ fromStateToList d isVal fstArg fwa =
       declArg = if fst fstArg == "" then ("dummy", NatTy) else fstArg
       ((tf,_),decls) = runWriter $ runStateT irt 0
   in if isVal then decls ++ [IrVal dName tf]
-     else decls ++ [IrFun dName ret [(dName ++ "_clo",ClosureTy),declArg] tf]
+     else let (finalArg, tff) 
+                  | isFun (snd declArg) = ((fst declArg ++ "_clo", ClosureTy), IrLet (snd fstArg) (fst fstArg)  (IrAccess (IrVar ClosureTy (fst declArg ++ "_clo")) 0 ) (getTypeIr tf) tf)
+                  | otherwise = (declArg, tf) 
+          in decls ++ [IrFun dName ret [(dName ++ "_clo",ClosureTy),finalArg] tff]
 
 
 getCod :: Ty -> Ty
