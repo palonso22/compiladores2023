@@ -1,0 +1,3 @@
+let suc (x : Nat) : Nat = x + 1 
+let pp (f:Nat ->Nat) (x:Nat) : Nat = f x
+let ans : Nat = print ""  (pp suc 1)

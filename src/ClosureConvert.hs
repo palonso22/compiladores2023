@@ -88,7 +88,7 @@ closureConvert t@(Lam (_,typ) x ty t1) f xs fwa = do
 
       tell [decl]
 
-      return $ MkClosure typ name [IrVar ty x | (x,ty) <- xs]
+      return $ MkClosure typ name [changeVar x  ty | (x,ty) <- xs]
 
 closureConvert (Fix (_, retTy) ff tf x tv t) f xs fwa = do
       let tt = openN [ff,x] (fromScope2 t)
@@ -96,7 +96,8 @@ closureConvert (Fix (_, retTy) ff tf x tv t) f xs fwa = do
       irt <- closureConvert tt ff ([(ff,tf), (x,tv),(fClo,ClosureTy)] ++ xs) fwa
       let decl = IrFun ff retTy [(fClo,ClosureTy),(x,tv)] (declareFreeVars (getTypeIr irt) irt fClo $ reverse xs)
       tell [decl]
-      return $ MkClosure tf ff [IrVar t x | (x,t) <- xs]
+      return $ MkClosure tf ff [changeVar x t  | (x,t) <- xs]
+
 
 closureConvert (App _ t1 t2) f xs fwa = do
       ir2 <- closureConvert t2 f xs fwa
@@ -206,3 +207,7 @@ getCod _ = error "Esta variable no representa una funcion"
 isFun :: Ty -> Bool
 isFun (FunTy _ _) = True
 isFun _ = False
+
+changeVar :: Name -> Ty -> Ir
+changeVar n ty  | isFun ty = IrVar ty (n ++ "_clo")
+                | otherwise = IrVar ty n
