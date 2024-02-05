@@ -63,9 +63,9 @@ parseMode = (,) <$>
   -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
   -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
       )
-   <*> pure False
+   -- <*> pure False
    -- reemplazar por la siguiente línea para habilitar opción
-   -- <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
+   <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
 
 -- | Parser de opciones general, consiste de un modo y una lista de archivos a procesar
 parseArgs :: Parser (Mode,Bool, [FilePath])
@@ -158,7 +158,7 @@ ccFile f sdecls = do
   let declsWithoutArgs = filter (\d -> let infoDecl = fromJust (lookup (sdeclName d) info) in
                                       not (fst infoDecl) && (fst.snd) infoDecl == "")  sdecls'
 
-      funcNamesWithoutArgs = map sdeclName declsWithoutArgs      
+      funcNamesWithoutArgs = map sdeclName declsWithoutArgs
 
       irDecls = concatMap (\d ->  let infoDecl = fromJust $ lookup (declName d) info in
                                uncurry (fromStateToList d) infoDecl funcNamesWithoutArgs) decls
@@ -240,13 +240,15 @@ handleDecl sd@SDecl {} = do
 
           CC -> do
               td <- typecheckDecl sd
-              addDecl td
+              opt <- getOpt
+              td' <- if opt then optimizeDecl td else return td
+              addDecl td'
       where
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Decl TTerm)
         typecheckDecl ssd =  do d <- elabDecl ssd
                                 tcDecl  d
         optimizeDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
-        optimizeDecl d = optDeclaration d
+        optimizeDecl = optDeclaration
 
 handleDecl st@SType {} = do
     let n = sinTypeName st
