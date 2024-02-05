@@ -36,6 +36,7 @@ import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
 import CEK(search)
+import Optimizations
 import Bytecompile(bytecompileModule, bcWrite, bcRead, runBC)
 import Data.List.Split (endBy)
 import IR
@@ -216,19 +217,21 @@ handleDecl sd@SDecl {} = do
               f <- getLastFile
               td <- typecheckDecl sd
               addDecl td
-              -- opt <- getOpt
-              -- td' <- if opt then optimize td else td
-              ppterm <- ppDecl td  --td'
+              opt <- getOpt
+              td' <- if opt then optimizeDecl td else return td
+              ppterm <- ppDecl td'
               printFD4 ppterm
           Eval -> do
               td <- typecheckDecl sd
-              -- td' <- if opt then optimizeDecl td else return td
-              ed <- evalDecl td
+              opt <- getOpt
+              td' <- if opt then optimizeDecl td else return td
+              ed <- evalDecl td'
               addDecl ed
           InteractiveCEK -> do
             td <- typecheckDecl sd
-              -- td' <- if opt then optimizeDecl td else return td
-            ed <- evalCEKDecl  td
+            opt <- getOpt
+            td' <- if opt then optimizeDecl td else return td
+            ed <- evalCEKDecl  td'
             addCEKDecl ed
 
           Bytecompile -> do
@@ -242,6 +245,8 @@ handleDecl sd@SDecl {} = do
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Decl TTerm)
         typecheckDecl ssd =  do d <- elabDecl ssd
                                 tcDecl  d
+        optimizeDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
+        optimizeDecl d = optDeclaration d
 
 handleDecl st@SType {} = do
     let n = sinTypeName st
