@@ -112,11 +112,13 @@ close2 nm1 nm2 t = Sc2 (varChanger lcl (\_ p i -> V p (Bound i)) t)
                       | y == nm1 = V p (Bound (depth + 1))
                       | otherwise = V p (Free y)
 
--- `closeN [n0,..,nn] t` es la operación inversa a open. Reemplaza
--- las variables `Free ni` por la variable ligada `Bound i`.
-closeN :: [Name] -> Tm info Var -> Tm info Var
-closeN ns = varChanger lcl (\_ p i -> V p (Bound i))
-   where lcl depth p y =
-            case elemIndex y ns of
-              Just i -> V p (Bound (i + depth))
-              Nothing -> V p (Free y)
+-- Similar a `close` pero suma 1 a las bound que quedaron abiertos
+closes :: Name -> Tm info Var -> Scope info Var
+closes nm t = Sc1 (varChanger lcl (\d p i -> V p (Bound (checkDepth d i))) t)
+ where lcl depth p y =
+            if y==nm then V p (Bound depth)
+                     else V p (Free y)
+       checkDepth d i = if i >= d then i+1
+                        else  i  
+
+

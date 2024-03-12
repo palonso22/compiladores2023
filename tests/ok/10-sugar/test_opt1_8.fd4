@@ -1,0 +1,12 @@
+let pred (x : Nat) : Nat = x - 1
+
+let rec mult(x y : Nat):Nat =
+    ifz y then 0 else x + (mult x (pred y))
+
+let a: Nat = 3 + 0
+let b: Nat = 5 + 0
+let c: Nat = a + 0
+let d: Nat = mult b 1
+let e: Nat = mult d 0
+let f: Nat = a + e
+let g: Nat = print "" (d + f)

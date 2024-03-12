@@ -1,0 +1,7 @@
+let a: Nat = 0 - 0
+let b: Nat = 0 + 1
+let c: Nat = 0 + 5
+let d: Nat = (1 + 1) + b + (3 + 2)
+let e: Nat = 1 + d 
+let f (x y: Nat) : Nat = (x + 0) + (y + 1) + 2
+let res:Nat = print "" (f  e d)
