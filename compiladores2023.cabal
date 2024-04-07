@@ -43,6 +43,7 @@ executable compiladores2023
         CEK
         Bytecompile
         ClosureConvert
+        Optimizations
 
     ghc-options: 
         -threaded 
@@ -71,5 +72,8 @@ executable compiladores2023
         , text
         , split
         , transformers
+        , containers
+        , ghc
+        , cryptohash-sha256
     hs-source-dirs:   src
     default-language: Haskell2010

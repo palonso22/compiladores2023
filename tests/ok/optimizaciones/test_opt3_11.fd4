@@ -1,0 +1,4 @@
+let a1: Nat = let b : Nat = 4 in let a: Nat = 3 in b + a + 2 
+let b1: Nat = let b: Nat = 5 in a1 + b
+let c1: Nat = let c: Nat = 0 in 1 + c
+let d: Nat = print "" (c1 + b1)

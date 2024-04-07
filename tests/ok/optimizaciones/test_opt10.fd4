@@ -1,0 +1,1 @@
+let f (x y z:Nat): Nat = (x + y) + (x + y)

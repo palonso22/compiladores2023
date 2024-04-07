@@ -1,0 +1,4 @@
+let f (x y z:Nat) : Nat = ifz z then x else y
+let a1: Nat = let a : Nat = 3 in 2 + a
+let b1: Nat = let b : Nat = 1 in a1 + b
+let c : Nat = print "" (f (f a1 b1 0) (f b1 a1 1) 1)

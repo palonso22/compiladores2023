@@ -1,0 +1,2 @@
+# Find common subexpresion no deberia alterar eso
+let p : Nat = print "x=" 4 +  print "x=" 4

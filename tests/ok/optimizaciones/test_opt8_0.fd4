@@ -1,0 +1,7 @@
+
+
+
+let a: Nat = let b: Nat = 1 in b + 0
+let c: Nat = let d: Nat = 3 in ((d + 1) + (d + 0))
+let e: Nat = let f: Nat = 0 in f + 0
+let g: Nat = print "" (ifz e then a else c)

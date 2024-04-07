@@ -36,6 +36,7 @@ import PPrint ( pp , ppTy, ppDecl )
 import MonadFD4
 import TypeChecker ( tc, tcDecl )
 import CEK(search)
+import Optimizations
 import Bytecompile(bytecompileModule, bcWrite, bcRead, runBC)
 import Data.List.Split (endBy)
 import IR
@@ -62,9 +63,9 @@ parseMode = (,) <$>
   -- <|> flag' Assembler ( long "assembler" <> short 'a' <> help "Imprimir Assembler resultante")
   -- <|> flag' Build ( long "build" <> short 'b' <> help "Compilar")
       )
-   <*> pure False
+   -- <*> pure False
    -- reemplazar por la siguiente línea para habilitar opción
-   -- <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
+   <*> flag False True (long "optimize" <> short 'o' <> help "Optimizar código")
 
 -- | Parser de opciones general, consiste de un modo y una lista de archivos a procesar
 parseArgs :: Parser (Mode,Bool, [FilePath])
@@ -157,7 +158,7 @@ ccFile f sdecls = do
   let declsWithoutArgs = filter (\d -> let infoDecl = fromJust (lookup (sdeclName d) info) in
                                       not (fst infoDecl) && (fst.snd) infoDecl == "")  sdecls'
 
-      funcNamesWithoutArgs = map sdeclName declsWithoutArgs      
+      funcNamesWithoutArgs = map sdeclName declsWithoutArgs
 
       irDecls = concatMap (\d ->  let infoDecl = fromJust $ lookup (declName d) info in
                                uncurry (fromStateToList d) infoDecl funcNamesWithoutArgs) decls
@@ -216,19 +217,21 @@ handleDecl sd@SDecl {} = do
               f <- getLastFile
               td <- typecheckDecl sd
               addDecl td
-              -- opt <- getOpt
-              -- td' <- if opt then optimize td else td
-              ppterm <- ppDecl td  --td'
+              opt <- getOpt
+              td' <- if opt then optimizeDecl td else return td
+              ppterm <- ppDecl td'
               printFD4 ppterm
           Eval -> do
               td <- typecheckDecl sd
-              -- td' <- if opt then optimizeDecl td else return td
-              ed <- evalDecl td
+              opt <- getOpt
+              td' <- if opt then optimizeDecl td else return td
+              ed <- evalDecl td'
               addDecl ed
           InteractiveCEK -> do
             td <- typecheckDecl sd
-              -- td' <- if opt then optimizeDecl td else return td
-            ed <- evalCEKDecl  td
+            opt <- getOpt
+            td' <- if opt then optimizeDecl td else return td
+            ed <- evalCEKDecl  td'
             addCEKDecl ed
 
           Bytecompile -> do
@@ -237,11 +240,15 @@ handleDecl sd@SDecl {} = do
 
           CC -> do
               td <- typecheckDecl sd
-              addDecl td
+              opt <- getOpt
+              td' <- if opt then optimizeDecl td else return td
+              addDecl td'
       where
         typecheckDecl :: MonadFD4 m => SDecl STerm -> m (Decl TTerm)
         typecheckDecl ssd =  do d <- elabDecl ssd
                                 tcDecl  d
+        optimizeDecl :: MonadFD4 m => Decl TTerm -> m (Decl TTerm)
+        optimizeDecl = optDeclaration
 
 handleDecl st@SType {} = do
     let n = sinTypeName st

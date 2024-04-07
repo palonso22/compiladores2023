@@ -17,12 +17,12 @@ EXTRAFLAGS	:=
 
 # Las reglas a chequear. Se puede deshabilitar toda una familia de tests
 # comentando una de estas líneas.
-# CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
-# CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
+CHECK	+= $(patsubst %,%.check_eval,$(TESTS))
+CHECK	+= $(patsubst %,%.check_cek,$(TESTS))
+CHECK	+= $(patsubst %,%.check_bc32_h,$(TESTS))
+CHECK	+= $(patsubst %,%.check_bc32,$(TESTS))
+#CHECK	+= $(patsubst %,%.check_eval_opt,$(TESTS))
+#CHECK	+= $(patsubst %,%.check_opt,$(TESTS))
 CHECK	+= $(patsubst %,%.check_cc,$(TESTS))
 
 # Ejemplo: así se puede apagar un test en particular.

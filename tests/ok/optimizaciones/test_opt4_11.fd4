@@ -1,0 +1,2 @@
+let a1: Nat->Nat = let a: Nat = 3 in let f (x y:Nat) :Nat =  x + y + 4 in f a
+let d: Nat = print "" (a1 3)

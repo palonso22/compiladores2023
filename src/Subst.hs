@@ -17,6 +17,7 @@ module Subst where
 
 import Lang
 import Common
+import Data.List ( elemIndex )
 
 -- Esta es una función auxiliar que usan el resto de las funciones de este módulo
 -- para modificar las vsriables (ligadas y libres) de un término
@@ -110,3 +111,14 @@ close2 nm1 nm2 t = Sc2 (varChanger lcl (\_ p i -> V p (Bound i)) t)
   where lcl depth p y | y == nm2 = V p (Bound depth)
                       | y == nm1 = V p (Bound (depth + 1))
                       | otherwise = V p (Free y)
+
+-- Similar a `close` pero suma 1 a las bound que quedaron abiertos
+closes :: Name -> Tm info Var -> Scope info Var
+closes nm t = Sc1 (varChanger lcl (\d p i -> V p (Bound (checkDepth d i))) t)
+ where lcl depth p y =
+            if y==nm then V p (Bound depth)
+                     else V p (Free y)
+       checkDepth d i = if i >= d then i+1
+                        else  i  
+
+
