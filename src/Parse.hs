@@ -100,9 +100,10 @@ printOp :: P STerm
 printOp = do
   i <- getPos
   reserved "print"
-  str <- option "" stringLiteral
-  a <- atom
-  return (SPrint i str a)
+  str <- option "" stringLiteral  
+  return (SLam i [("x", NatTy)] (SPrint i str (SV i "x")))
+  
+  
 
 binary :: String -> BinaryOp -> Assoc -> Operator String () Identity STerm
 binary s f = Ex.Infix (reservedOp s >> return (SBinaryOp NoPos f))
