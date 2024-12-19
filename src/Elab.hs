@@ -88,9 +88,9 @@ elab' env (SLet i rec n ls tr def body)
                    fulltype <- desugarTypeList $ map snd ls ++ [tr]
                    let sfix = SFix i (n,fulltype) ls def
                    sfix' <- elab' env sfix
-                   body' <- elab' (n:v:env) body
-                   let Sc2 cbody' = close2 n v body'
-                   return $ Let i n fulltype sfix' (Sc1 cbody')
+                   body' <- elab' (n:env) body
+                   let cb = close n body'
+                   return $ Let i n fulltype sfix' cb
 
 
 elab' _ e = error $ "Unexpected" ++ show e                   

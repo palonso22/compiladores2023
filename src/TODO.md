@@ -3,7 +3,7 @@
 ### En cuanto a syntax sugar y elaboración:
 
 1. [x]    Les faltó hacer la eta-expansión del operador print. Esto sirve para obtener una "aplicación parcial" de print. Fijense que está explicado en el punto 1.3 del apunte de azúcar sintáctico. Por ejemplo, el siguiente programa debería ser válido: let f (g: Nat -> Nat) = g 10 in f (print "res=")
-2. []    Revisen la elaboración de términos recursivos (énfasis en términos, no declaraciones). Por ejemplo, el test 230-inner_rec.fd4 no pasa. También pueden probar desde el intérprete con un ejemplo más simple que debería ser válido pero no compila: let rec f (x:Nat) :Nat = ifz x then x else (1 + f (x-1)) in f 10
+2. [x]    Revisen la elaboración de términos recursivos (énfasis en términos, no declaraciones). Por ejemplo, el test 230-inner_rec.fd4 no pasa. También pueden probar desde el intérprete con un ejemplo más simple que debería ser válido pero no compila: let rec f (x:Nat) :Nat = ifz x then x else (1 + f (x-1)) in f 10
 
 ### En cuanto a Bytecode:
 
