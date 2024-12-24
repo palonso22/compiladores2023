@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Specify the folder path you want to iterate through
-folder="tests/ok/10-sugar/"
+folder="tests/ok/11-sugar/"
 
 make test_all
 

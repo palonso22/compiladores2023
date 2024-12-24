@@ -1,5 +1,6 @@
 #TESTDIRS += tests/ok/00-basicos
-TESTDIRS += tests/ok/10-sugar
+#TESTDIRS += tests/ok/10-sugar
+TESTDIRS += tests/ok/11-sugar
 #TESTDIRS += tests/ok/20-tysym
 
 TESTS	:= $(shell find $(TESTDIRS) -name '*.fd4' -type f | sort)
