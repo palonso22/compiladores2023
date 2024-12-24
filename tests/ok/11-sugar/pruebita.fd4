@@ -1,0 +1,4 @@
+let p : Nat = let rec f (x:Nat) : Nat = ifz x then x else (1 + f (x-1)) in f 50
+let p2 : Nat = print "x=" p 
+
+

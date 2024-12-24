@@ -1,0 +1,12 @@
+let test (x:Nat) : Nat =
+  let rec f (y : Nat) : Nat = x + 1 + f (y-1)
+  in
+  f x
+
+
+let p (s : Nat) : Nat = let rec f (x:Nat) : Nat =
+                        let rec g (y:Nat) : Nat = ifz y then y else (2 + g (y-1)) in ifz x then x else  (g x) + (f (x-1))
+                        in  f s
+
+let p2 : Nat = print "x=" (p 100)
+

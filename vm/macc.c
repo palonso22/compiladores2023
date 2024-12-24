@@ -362,7 +362,7 @@ void run(code init_c)
 			break;
 		}
 
-		case STOP: {			
+		case STOP: {
 			return;
 		}
 
@@ -379,7 +379,7 @@ void run(code init_c)
 
 		case PRINTN: {			
 			uint32_t i = s[-1].i;			
-			printf("%d\n", i);
+			wprintf(L"%u\n", i);
 			break;
 		}
 
@@ -388,7 +388,7 @@ void run(code init_c)
 		   		wchar_t x = *c++;
 		   		putwchar(x);
 		  	}
-		  	c++;
+		  	c++;			
 			break;
 		}
 
