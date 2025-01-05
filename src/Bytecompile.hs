@@ -277,13 +277,13 @@ runBC' (PRINT:c) e s = do let (str,c') = decoderStr "" c
         decoderStr :: String -> [Int] -> (String, [Int])
         decoderStr ss (NULL:cs) = (ss,cs)
         decoderStr ss (x:xs) = decoderStr (ss++[chr x]) xs
-        decoderStr _ [] = error "111 Esto no debería pasar"
+        decoderStr _ [] = error "Esto no debería pasar"
 
 runBC' (SHIFT:c) e (v:s) = runBC' c (v:e) s
 
 runBC' (DROP:c) (v:e) s = runBC' c e s
 
-runBC' (STOP:_) _ (I res : xs) = return ()
+runBC' (STOP:_) _ _ = return ()
 
 runBC' xs e s = error $ "BC:"++show xs++"\n"++
                         "Entorno:" ++ show e ++ "\n"++
