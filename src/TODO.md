@@ -7,8 +7,8 @@
 
 ### En cuanto a Bytecode:
 
-3. []    En la Macchina (la máquina virtual escrita en C) está mal el orden de los prints. Pueden correr el test 310-orden_print.fd4para verificar cuando lo corrijan.
-4. []    En la ejecución en la máquina implementada en Haskell fallan los tests. Pueden usar 100-letfun.fd4 como ejemplo. El
+3. [x]    En la Macchina (la máquina virtual escrita en C) está mal el orden de los prints. Pueden correr el test 310-orden_print.fd4para verificar cuando lo corrijan.
+4. [x]    En la ejecución en la máquina implementada en Haskell fallan los tests. Pueden usar 100-letfun.fd4 como ejemplo. El
     mensaje de error que obtienen va a servirles para empezar a ver qué operación revisar.
 
 ### Optimizaciones:
