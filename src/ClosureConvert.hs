@@ -36,7 +36,9 @@ closureConvert (IfZ (_,ty) tz tt tf) f xs fwa = do
       return $ IrIfZ ty ir1 ir2 ir3
 
 closureConvert (Let ty2 x ty1 t1  t2) f xs fwa = do
-      let tt = open x t2
+      rr <-freshen [x] 
+      let [freshx] = rr
+      let tt = open freshx t2
       ir1 <- closureConvert t1 f xs fwa
 
       -- si x es una funcion, se declara su clausura
@@ -44,16 +46,16 @@ closureConvert (Let ty2 x ty1 t1  t2) f xs fwa = do
       -- ademas la clausura pasa a ser una variable libre en 
       -- los terminos anidados
 
-      let xs' = let xClo = x ++ "_clo" in
+      let xs' = let xClo = freshx ++ "_clo" in
                  case ty1 of
                     FunTy _ _ -> (xClo,ClosureTy) : xs
                     _ -> xs
 
-      ir2 <- closureConvert tt f ((x,ty1):xs') fwa
-      return $ if isFun ty1 then let xClo = x ++ "_clo" in
+      ir2 <- closureConvert tt f ((freshx,ty1):xs') fwa
+      return $ if isFun ty1 then let xClo = freshx ++ "_clo" in
                                      IrLet ClosureTy xClo ir1 (getTypeIr ir2) $
-                                     IrLet ty1 x (IrAccess (IrVar ClosureTy xClo) 0) (getTypeIr ir2) ir2
-               else  IrLet (getTypeIr ir1) x ir1 (getTypeIr ir2) ir2
+                                     IrLet ty1 freshx (IrAccess (IrVar ClosureTy xClo) 0) (getTypeIr ir2) ir2
+               else  IrLet (getTypeIr ir1) freshx ir1 (getTypeIr ir2) ir2
 
 
 
