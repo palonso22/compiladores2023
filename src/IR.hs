@@ -49,5 +49,5 @@ getTypeIr (IrPrint _ _) = NatTy
 getTypeIr (IrBinaryOp {}) = NatTy
 getTypeIr (IrLet _ _ _ ty _) = ty
 getTypeIr (IrIfZ ty _ _ _) = ty
-getTypeIr (MkClosure {}) = ClosureTy
+getTypeIr (MkClosure ty _ _) = ty
 getTypeIr (IrAccess _ _) = error "No tiene tipo"
