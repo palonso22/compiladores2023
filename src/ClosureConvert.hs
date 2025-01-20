@@ -36,7 +36,7 @@ closureConvert (IfZ (_,ty) tz tt tf) f xs fwa = do
       return $ IrIfZ ty ir1 ir2 ir3
 
 closureConvert (Let ty2 x ty1 t1  t2) f xs fwa = do
-      rr <-freshen [x] 
+      rr <-freshen [x]
       let [freshx] = rr
       let tt = open freshx t2
       ir1 <- closureConvert t1 f xs fwa
@@ -60,10 +60,12 @@ closureConvert (Let ty2 x ty1 t1  t2) f xs fwa = do
 
 
 closureConvert t@(Lam (_,typ) x ty t1) f xs fwa = do
-      let tt = open x t1
-      ns <- freshen [f]
+      res <- checkFreeVar x (map fst xs)
+      let [x'] = res
+      ns <- freshen [f]      
       let name = head ns
           ret = getCod typ
+          tt = open x' t1
 
           -- si el argumento es una funcion se 
           -- necesita agregar la clausura de la misma como variable libre 
@@ -74,23 +76,23 @@ closureConvert t@(Lam (_,typ) x ty t1) f xs fwa = do
                 case ty of
                     FunTy _ _ -> (xClo,ClosureTy) : xs
                     _ -> xs
-      irt <- closureConvert tt f ((x,ty):xs') fwa
+      irt <- closureConvert tt f ((x',ty):xs') fwa
 
       -- en caso de que el argumento sea una funcion lo reemplazamos por una clausura
       -- y obtenemos la funcion desde la clausura
 
-      let  (irt', x', ty') = case ty of
+      let  (irt', x'', ty') = case ty of
 
                          FunTy _ _ -> let xClo = x ++ "_clo" in
                                       (IrLet ty x  (IrAccess (IrVar ClosureTy xClo) 0 ) (getTypeIr irt) irt, xClo, ClosureTy)
 
-                         _ -> (irt,x,ty)
+                         _ -> (irt,x',ty)
 
-           decl = IrFun name ret [("clo",ClosureTy),(x', ty')] (declareFreeVars (getTypeIr irt') irt' "clo" $ reverse xs)
+           decl = IrFun name ret [("clo",ClosureTy),(x'', ty')] (declareFreeVars (getTypeIr irt') irt' "clo" $ reverse xs)
 
       tell [decl]
 
-      return $ MkClosure typ name [changeVar x  ty | (x,ty) <- xs]
+      return $ MkClosure typ name [changeVar xxx  tyyy | (xxx,tyyy) <- xs]
 
 closureConvert (Fix (_, retTy) ff tf x tv t) f xs fwa = do
       let tt = openN [ff,x] (fromScope2 t)
@@ -196,9 +198,9 @@ fromStateToList d isVal fstArg fwa =
       declArg = if fst fstArg == "" then ("dummy", NatTy) else fstArg
       ((tf,_),decls) = runWriter $ runStateT irt 0
   in if isVal then decls ++ [IrVal dName tf]
-     else let (finalArg, tff) 
+     else let (finalArg, tff)
                   | isFun (snd declArg) = ((fst declArg ++ "_clo", ClosureTy), IrLet (snd fstArg) (fst fstArg)  (IrAccess (IrVar ClosureTy (fst declArg ++ "_clo")) 0 ) (getTypeIr tf) tf)
-                  | otherwise = (declArg, tf) 
+                  | otherwise = (declArg, tf)
           in decls ++ [IrFun dName ret [(dName ++ "_clo",ClosureTy),finalArg] tff]
 
 
@@ -213,3 +215,7 @@ isFun _ = False
 changeVar :: Name -> Ty -> Ir
 changeVar n ty  | isFun ty = IrVar ty (n ++ "_clo")
                 | otherwise = IrVar ty n
+
+checkFreeVar :: Name -> [Name] -> ClosureState [Name]
+checkFreeVar x xs = if x `elem` xs then freshen [x]
+                    else return [x]
