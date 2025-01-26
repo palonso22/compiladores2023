@@ -83,16 +83,16 @@ tailCallOpt (App _ t1 t2) = do bcT1 <- bcc t1
                                bcT2 <- bcc t2
                                return $ bcT1 ++ bcT2 ++ [TAILCALL]
 
-tailCallOpt (IfZ _ z t1 t2) = do bcz <- bcc z                             
+tailCallOpt (IfZ _ z t1 t2) = do bcz <- bcc z
                                  tc1 <- tailCallOpt t1
                                  tc2 <- tailCallOpt t2
-                                 return $ [IFZ,length tc1 + 2] ++ bcz ++ [IFSTOP] ++ tc1 ++ [JUMP,length tc2] ++ tc2                            
+                                 return $ [IFZ,length tc1 + 2] ++ bcz ++ [IFSTOP] ++ tc1 ++ [JUMP,length tc2] ++ tc2
 
 tailCallOpt (Let _ _ ty m n) = do bcM <- bcc m
                                   tcN <- tailCallOpt (fromScope n)
                                   return $ bcM ++ [SHIFT] ++ tcN
 
-tailCallOpt t = do bcT <- bcc t                                     
+tailCallOpt t = do bcT <- bcc t
                    return $ bcT ++ [RETURN]
 
 
@@ -186,13 +186,13 @@ bytecompileModule ds = do let t = elabTerm ds
 elabTerm :: [Decl TTerm] -> TTerm
 elabTerm [] = error "esto no deberia pasar"
 elabTerm [Decl pos name body] = body
-elabTerm ((Decl pos name body):xs) = 
+elabTerm ((Decl pos name body):xs) =
   let letBody =  elabTerm' xs
   in Let (getInfo body) name (getTy body) body (close name letBody)
-                                     
 
 
-elabTerm' :: [Decl TTerm] -> TTerm   
+
+elabTerm' :: [Decl TTerm] -> TTerm
 elabTerm' [] = error "esto no deberia pasar"
 elabTerm' [Decl _ _ b] = replaceGlobal b
 elabTerm' ((Decl p n b):ds) = let letBody =  close n (elabTerm' ds) in
@@ -230,6 +230,14 @@ printFD42 :: MonadFD4 m => String -> m ()
 printFD42 = liftIO . putStr
 
 
+checkProfAndStack :: MonadFD4 m => Stack -> m a -> m a
+checkProfAndStack s action = do p <- getProf
+                                if p then do maxS <- getMaxStack
+                                             let currentStack = length s in
+                                              when (currentStack > maxS) $ setMaxStack currentStack
+                                             addOp
+                                             action 
+                                     else action
 
 
 runBC :: MonadFD4 m => Bytecode -> m ()
@@ -237,41 +245,41 @@ runBC c = runBC' c [] []
 
 runBC' :: MonadFD4 m => Bytecode -> Env -> Stack -> m()
 
-runBC' (CONST:n:c) e s = runBC' c e (I n:s)
+runBC' (CONST:n:c) e s = checkProfAndStack (I n:s) $ runBC' c e (I n:s)
 
-runBC' (ACCESS:i:c) e s = runBC' c e (e!!i:s)
+runBC' (ACCESS:i:c) e s = checkProfAndStack (e!!i:s) $ runBC' c e (e!!i:s)
 
-runBC' (ADD:c) e (I n1:I n2:s) = runBC' c e (I (n1+n2) :s)
+runBC' (ADD:c) e (I n1:I n2:s) = checkProfAndStack (I (n1+n2) :s) $ runBC' c e (I (n1+n2) :s)
 
 runBC' (SUB:c) e (I n1:I n2:s) = do let res = max (n2-n1) 0
-                                    runBC' c e (I res :s)
+                                    checkProfAndStack (I res :s) $ runBC' c e (I res :s)
 
-runBC' (CALL:c) e (v:Fun ef cf :s)  = runBC' cf (v:ef) (RA e c:s)
+runBC' (CALL:c) e (v:Fun ef cf :s)  = checkProfAndStack (RA e c:s) $ runBC' cf (v:ef) (RA e c:s)
 
-runBC' (TAILCALL:c) e (v:Fun ef cf :s)  = runBC' cf (v:ef) s
+runBC' (TAILCALL:c) e (v:Fun ef cf :s)  = checkProfAndStack s $ runBC' cf (v:ef) s
 
 
-runBC' (IFZ:ctos:c) e s  = do runBC' c e (RA e []:I ctos:s)
+runBC' (IFZ:ctos:c) e s  = checkProfAndStack (RA e []:I ctos:s) $ runBC' c e (RA e []:I ctos:s)
 
-runBC' (IFSTOP:c) _ (I k:RA e _:I ctos:s) | k == 0 = runBC' c e s
-                                          | otherwise = runBC' (drop ctos c) e s
+runBC' (IFSTOP:c) _ (I k:RA e _:I ctos:s) | k == 0 = checkProfAndStack s $ runBC' c e s
+                                          | otherwise = checkProfAndStack s $ runBC' (drop ctos c) e s
 
-runBC' (JUMP:n:c) e s = runBC' (drop n c) e s                                                           
+runBC' (JUMP:n:c) e s = checkProfAndStack s $ runBC' (drop n c) e s
 
-runBC' (FUNCTION:ctos:c) e s = runBC' (drop ctos c) e (Fun e c:s)
+runBC' (FUNCTION:ctos:c) e s = checkProfAndStack (Fun e c:s) $ runBC' (drop ctos c) e (Fun e c:s)
 
-runBC' (RETURN:_) _ (v:RA e c:s) = runBC' c e (v:s)
+runBC' (RETURN:_) _ (v:RA e c:s) = checkProfAndStack (v:s) $ runBC' c e (v:s)
 
 runBC' (FIX:c) e (Fun _ cf:s) = do let efix = Fun efix cf:e
-                                   runBC' c e (Fun efix cf:s)
+                                   checkProfAndStack (Fun efix cf:s) $ runBC' c e (Fun efix cf:s)
 
 
 runBC' (PRINTN:c) e q@(I n:s) = do printFD4 $ show n
-                                   runBC' c e q
+                                   checkProfAndStack q $ runBC' c e q
 
 runBC' (PRINT:c) e s = do let (str,c') = decoderStr "" c
                           printFD42 str
-                          runBC'  c' e s
+                          checkProfAndStack s $ runBC'  c' e s
 
   where -- Consume bytecode y va generando el string codificado
         decoderStr :: String -> [Int] -> (String, [Int])
@@ -279,11 +287,11 @@ runBC' (PRINT:c) e s = do let (str,c') = decoderStr "" c
         decoderStr ss (x:xs) = decoderStr (ss++[chr x]) xs
         decoderStr _ [] = error "Esto no debería pasar"
 
-runBC' (SHIFT:c) e (v:s) = runBC' c (v:e) s
+runBC' (SHIFT:c) e (v:s) = checkProfAndStack s $ runBC' c (v:e) s
 
-runBC' (DROP:c) (v:e) s = runBC' c e s
+runBC' (DROP:c) (v:e) s = checkProfAndStack s $ runBC' c e s
 
-runBC' (STOP:_) _ _ = return ()
+runBC' (STOP:_) _ s = checkProfAndStack s $ return ()
 
 runBC' xs e s = error $ "BC:"++show xs++"\n"++
                         "Entorno:" ++ show e ++ "\n"++

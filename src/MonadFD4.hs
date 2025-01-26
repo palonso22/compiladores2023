@@ -30,6 +30,11 @@ module MonadFD4 (
   getInter,
   getMode,
   getOpt,
+  getProf,
+  addOp,
+  getOp,
+  getMaxStack,
+  setMaxStack,
   eraseLastFileDecls,
   failPosFD4,
   failFD4,
@@ -52,6 +57,7 @@ import Control.Monad.State
 import Control.Monad.Except
 import Control.Monad.Reader
 import System.IO
+import Data.Semigroup (Max(getMax))
 
 -- * La clase 'MonadFD4'
 
@@ -74,6 +80,9 @@ class (MonadIO m, MonadState GlEnv m, MonadError Error m, MonadReader Conf m) =>
 
 getOpt :: MonadFD4 m => m Bool
 getOpt = asks opt
+
+getProf :: MonadFD4 m => m Bool
+getProf = asks prof
 
 getMode :: MonadFD4 m => m Mode
 getMode = asks modo
@@ -99,7 +108,20 @@ addDecl d = modify (\s -> s { glb = d : glb s, cantDecl = cantDecl s + 1 })
 addCEKDecl :: MonadFD4 m => Decl Val -> m ()
 addCEKDecl d = modify (\s -> s { glbCEK = d : glbCEK s})
 
+-- setOp :: MonadFD4 m => m ()
+-- setOp = modify (\s -> s { cantOp = 0 })
 
+addOp :: MonadFD4 m => m ()
+addOp = modify (\s -> s { cantOp = cantOp s + 1 })
+
+getOp :: MonadFD4 m => m Int
+getOp = gets cantOp
+
+setMaxStack :: MonadFD4 m => Int -> m ()
+setMaxStack n = modify (\s -> s { maxStack = n })
+
+getMaxStack :: MonadFD4 m => m Int
+getMaxStack = gets maxStack
 
 eraseLastFileDecls :: MonadFD4 m => m ()
 eraseLastFileDecls = do

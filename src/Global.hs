@@ -16,7 +16,9 @@ data GlEnv = GlEnv {
                         -- Este parámetro puede cambiar durante la ejecución:
                         -- Es falso mientras se cargan archivos, pero luego puede ser verdadero.
   lfile :: String,      -- ^ Último archivo cargado.
+  maxStack :: Int,      -- ^ Máxima cantidad de elementos en la pila
   cantDecl :: Int,      -- ^ Cantidad de declaraciones desde la última carga
+  cantOp :: Int,        -- ^ Cantidad de operaciones
   glb :: [Decl TTerm],  -- ^ Entorno con declaraciones globales
   tySin :: [(Name,Ty)],    -- ^ Entorno de sinonimos de tipo
   glbCEK :: [Decl Val]
@@ -44,9 +46,10 @@ data Mode =
 
 data Conf = Conf {
     opt :: Bool,          --  ^ True, si estan habilitadas las optimizaciones.
+    prof :: Bool,         --  ^ True, si se debe generar código para mostrar metricas.
     modo :: Mode
 }
 
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv False "" 0 [] [] []
+initialEnv = GlEnv False "" 0 0 0 [] [] []

@@ -41,7 +41,7 @@ executable compiladores2023
         Subst
         TypeChecker
         CEK
-        Bytecompile
+        Encoding
         ClosureConvert
         Optimizations
 
