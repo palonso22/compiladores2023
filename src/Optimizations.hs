@@ -100,13 +100,13 @@ optimizer::MonadFD4 m => TTerm -> m TTerm
 optimizer t = do
        printFD4 "Optimizando"
        (t1,change1) <- constantPropagation t
-       when change1 (printFD4 "Se aplico constant propagation")
+       --when change1 (printFD4 "Se aplico constant propagation")
        (t2,change2) <- constantFolding t1
-       when change2 (printFD4 "Se aplico constant folding")
+       --when change2 (printFD4 "Se aplico constant folding")
        (t3,change3) <- commonSubexpression t2
        when change3 (printFD4 "Se aplico common subexpression")
-       when change3 (printFD4 $ show t)
-       when change3 (printFD4 $ show t3)
+       -- when change3 (printFD4 $ show t)
+       -- when change3 (printFD4 $ show t3)
        if change1 || change2 || change3 then optimizer t3
        else return t3
 
@@ -142,15 +142,17 @@ type Depth = Int -- Cuanto descendimos en el termino
 type Lambdas = Int -- Cantidad de lambdas que descendimos en el termino
 type MaxBound = Int -- Maximo bound en un termino
 type Key = (ByteString, Lambdas)
-type SubExpMap = Map.Map Key (TTerm,Int,Depth,Bool, MaxBound)
+type SubExpMap = Map.Map Key (TTerm,Int, Depth, Bool, MaxBound)
 type TermMap = Map.Map ByteString TTerm
 
 commonSubexpression :: MonadFD4 m => TTerm -> m (TTerm,Bool)
 commonSubexpression t = do
        -- Encontrar subexpresiones comunes
        m <- findcommonSubexp t Map.empty 0 0
-       -- Filtrar expresiones con efectos laterales o q solo suceden una vez
-       let m1 = Map.filter (\(t,n,_,b, _) -> n > 1 && not b) m
+       -- Filtrar expresiones con efectos laterales o q solo suceden una vez       
+       let m1 = Map.filter (\(_,n,_,b, _) -> n > 1 && not b) m
+       printFD4 $ show t
+       printFD4 $ show m1
        -- Reemplazar operaciones q se repiten por su hash
        (t',m2) <- factorizer t 0 m1
        let ls = Map.toList m2
@@ -187,19 +189,19 @@ findcommonSubexp t@(App i t1 t2) m d l = do
        let mb1 = getMaxBound (h1,l) m1
        m2 <- findcommonSubexp t2 m1 (d+1) l
        let h2 = hashTerm t2
-       let mb2 = getMaxBound (h2,d) m2
-       let b = hasLateralEffect (h1,d) m2 || hasLateralEffect (h2,d) m2
+       let mb2 = getMaxBound (h2,l) m2
+       let b = hasLateralEffect (h1,l) m2 || hasLateralEffect (h2,l) m2
        countSubexp t b m2 d l (max mb1 mb2)
 
 findcommonSubexp t@(BinaryOp i bo t1 t2) m d l = do
        tm' <- findcommonSubexp t1 m (d+1) l
        let h1 = hashTerm t1
-       let b1 = hasLateralEffect (h1,d) tm'
-       let mb1 = getMaxBound (h1,d) tm'
+       let b1 = hasLateralEffect (h1,l) tm'
+       let mb1 = getMaxBound (h1,l) tm'
        tm'' <- findcommonSubexp t2 tm' (d+1) l
        let h2 = hashTerm t2
-       let b2 = hasLateralEffect (h2,d) tm''
-       let mb2 = getMaxBound (h2,d) tm''
+       let b2 = hasLateralEffect (h2,l) tm''
+       let mb2 = getMaxBound (h2,l) tm''
        countSubexp t (b1 || b2) tm'' d l (max mb1 mb2)
 
 
@@ -218,20 +220,20 @@ findcommonSubexp t@(IfZ i tz tt tf) m d l = do
 
 
 findcommonSubexp t@(Print _ _ t1) m d l = do
-       tm1 <- findcommonSubexp t1 m (d+1) l
-       --countSubexp t True tm1 n l fixxx
-       return tm1
+       --m1 <- findcommonSubexp t1 m (d+1) l
+       --countSubexp t  m1 n l fixxx
+       return m
 
 findcommonSubexp (Fix _ _ _ _ _ t) m d l = findcommonSubexp (fromScope2 t) m (d+1) (l+2)
 
 findcommonSubexp t@(Let _ _ _ t1  t2) m d l = do
-       tm1 <- findcommonSubexp t1 m d l
+       m1 <- findcommonSubexp t1 m d l
        let h1 = hashTerm t1
-       tm2 <- findcommonSubexp (fromScope t2) tm1 (d+1) (l+1)
+       m2 <- findcommonSubexp (fromScope t2) m1 (d+1) (l+1)
        let h2 = hashTerm (fromScope t2)
-       let b = hasLateralEffect (h1,l) tm2 || hasLateralEffect (h2,l) tm2
-       let mb2 = getMaxBound (h2,l) tm2
-       countSubexp t b tm2 (d+1) l mb2
+       let b = hasLateralEffect (h1,l) m2 || hasLateralEffect (h2,l) m2
+       let mb2 = getMaxBound (h2,l) m2
+       countSubexp t b m2 (d+1) l mb2
 
 countSubexp :: MonadFD4 m => TTerm -> Bool -> SubExpMap -> Depth -> Lambdas -> MaxBound -> m SubExpMap
 countSubexp t@(V i v) b m depth l mb = return $ let k = (hashTerm t,l) in Map.insert k (t,1, depth, False, mb) m
@@ -246,63 +248,60 @@ countSubexp t b tm depth l mb =
 
 {- 
 Reemplazar expresiones que suceden varias veces por variables libres
-Retorna: Termino modificado
+Retorna: Termino modificado, Mapa actualizado
 -}
 
-factorizer :: MonadFD4 m => TTerm -> Lambdas -> SubExpMap -> m (TTerm,SubExpMap)
+replaceExpByHash :: MonadFD4 m => TTerm -> Lambdas -> SubExpMap -> m TTerm
 
-factorizer t@(V _ _) _ m =  return (t,m)
+replaceExpByHash t@(V _ _) _ m =  return (t,m)
 
-factorizer t@(Const _ _) _ m = return (t,m)
+replaceExpByHash t@(Const _ _) _ m = return (t,m)
 
-factorizer  t@(Lam i n ty t1) l m = do
-       (t1',m') <- factorizer (fromScope t1) (l+1) m
-       return (Lam i n ty (toScope t1'),m')
+replaceExpByHash  t@(Lam i n ty t1) l m = do
+       t1' <- replaceExpByHash (fromScope t1) (l+1) m
+       return $ Lam i n ty (toScope t1')
 
-factorizer t@(App i t1 t2) l m = do 
+replaceExpByHash t@(App i t1 t2) l m = do        
+       t1' <- replaceExpByHash t1 l m
+       t2' <- replaceExpByHash t2 l m
+       return $ (App i t1' t2')
+       
+
+replaceExpByHash t@(Print i s t1) l m = do 
        let h = hashTerm t
-       (t1',m1) <- factorizer t1 l m
-       (t2',m2) <- factorizer t2 l m1
-       let app = App i t1' t2'
-       case Map.lookup (h,l) m of
-              Nothing -> return (app,m2)
-              _ -> return (V i (Free $ show h),replaceExp (h,l) app m2)
-
-factorizer t@(Print i s t1) l m = do 
-       let h = hashTerm t
-       (t1',tm') <- factorizer t1 l m       
+       (t1',tm') <- replaceExpByHash t1 l m       
        return (Print i s t1',tm')
 
-factorizer t@(BinaryOp i bo t1 t2) l m = do
+replaceExpByHash t@(BinaryOp i bo t1 t2) l m = do
        let h = hashTerm t
-       (t1',m1) <- factorizer t1 l m
-       (t2',m2) <- factorizer t2 l m1
+       (t1',m1) <- replaceExpByHash t1 l m
+       (t2',m2) <- replaceExpByHash t2 l m1
        let bot = BinaryOp i bo t1' t2'
        case Map.lookup (h,l) m2 of
               Nothing -> return (bot,m2)
               _ -> return (V i (Free $ show h),replaceExp (h,l) bot m2)
 
-factorizer t@(IfZ i tz tt tf) l m = do 
-       let h = hashTerm t
-       (tz',m1) <- factorizer tz l m
-       (tt',m2) <- factorizer tt l m1
-       (tf',m3) <- factorizer tf l m2
-       let ifz = IfZ i tz' tt' tf'
+replaceExpByHash t@(IfZ i tz tt tf) l m = do 
+       (tz',m1) <- replaceExpByHash tz l m
+       (tt',m2) <- replaceExpByHash tt l m1
+       (tf',m3) <- replaceExpByHash tf l m2       
+
        case Map.lookup (h,l) m3 of
               Nothing -> return (ifz,m3)
               _ -> return (V i (Free $ show h),replaceExp (h,l) ifz m3)
 
-factorizer  t@(Let i n ty t1 t2) l m = do
+replaceExpByHash  t@(Let i n ty t1 t2) l m = do
        let h = hashTerm t
-       (t1',m1) <- factorizer t1 l m
-       (t2',m2) <- factorizer (fromScope t2) (l+1) m1
+       (t1',m1) <- replaceExpByHash t1 l m
+       (t2',m2) <- replaceExpByHash (fromScope t2) (l+1) m1
        let t' = Let i n ty t1' (toScope t2')
-       case Map.lookup (h,l) m of
-              Nothing -> return (t',m2)
-              _ -> return (V i (Free $ show h), replaceExp (h,l) t' m2)
+       return (t', m2)
+       -- case Map.lookup (h,l) m of
+       --        Nothing -> return (t',m2)
+       --        _ -> return (V i (Free $ show h), replaceExp (h,l) t' m2)
 
-factorizer t@(Fix i n1 ty1 n2 ty2 t1) l m = do
-       (t1',m') <- factorizer (fromScope2 t1) (l+2) m
+replaceExpByHash t@(Fix i n1 ty1 n2 ty2 t1) l m = do
+       (t1',m') <- replaceExpByHash (fromScope2 t1) (l+2) m
        return (Fix i n1 ty1 n2 ty2 (toScope2 t1'),m')
 
 {-
@@ -338,3 +337,87 @@ hasLateralEffect :: Key -> SubExpMap -> Bool
 hasLateralEffect h m = case Map.lookup h m of
                          Nothing -> False
                          Just (_,_,_,b,_) -> b
+
+
+
+
+findcommonSubexp2:: MonadFD4 m => TTerm -> SubExpMap -> Depth -> Lambdas -> m (SubExpMap,TTerm)
+findcommonSubexp2 t@(V i v) m d l = do 
+       m1 <- countSubexp t False m d l (getMaxBoundVar v)
+       return (m1,t )
+findcommonSubexp2 t@(Const i c) m _ _ = return (m,t)
+
+findcommonSubexp2 (Lam _ _ _ t) tm d l = do
+       (m1, t') <- findcommonSubexp2 (fromScope t) tm (d+1) (l+1)
+
+       let (local, returnMap) = Map.partitionWithKey (\(_,d) (_,_,_,_, mb) -> mb < l && d > l) m1
+              
+       -- Reemplazar terminos que se repiten por su hash
+       (t'', m2'') <- factorizer t' 0 local
+
+       let ls = Map.toList m2''
+       -- Ordenar terminos por profundidad
+       let ls' = sortBy (\ (k1, (_,_,d1,_, _)) (k2, (_,_,d2,_, _)) ->  compare d1 d2) ls
+           ls'' = map (\((h,l),(t,_,_,_, mb)) -> let nm = show h in  (nm, t, l, mb)) ls'
+
+       --   | Let info Name Ty (Tm info var)  (Scope info var)
+
+       return (returnMap, Let i v ty t1' t) --(wrapperLet t' (reverse ls'') 0  , not $ null ls''))
+
+
+findcommonSubexp2 t@(App i t1 t2) m d l = do
+       (m1,t1') <- findcommonSubexp2 t1 m (d+1) l       
+       (m2,t2') <- findcommonSubexp2 t2 m1 (d+1) l
+       let h1 = hashTerm t1
+       let mb1 = getMaxBound (h1,l) m1
+       let h2 = hashTerm t2
+       let mb2 = getMaxBound (h2,l) m2
+       let b = hasLateralEffect (h1,l) m2 || hasLateralEffect (h2,l) m2
+       return (countSubexp t b m2 d l (max mb1 mb2), App i t1' t2')
+
+findcommonSubexp2 t@(BinaryOp i bo t1 t2) m d l = do
+       m1 <- findcommonSubexp2 t1 m (d+1)  l       
+       m2 <- findcommonSubexp2 t2 m (d+1) l       
+       --let b1 = hasLateralEffect (h1,l) tm'
+       --let mb1 = getMaxBound (h1,l) tm'
+       --tm'' <- findcommonSubexp t2 tm' (d+1) l              
+       --let mb2 = getMaxBound (h2,l) tm''       
+       countSubexp t (b1 || b2) tm'' d l (max mb1 mb2)
+
+
+findcommonSubexp2 t@(IfZ i t1 t2 t3) m d l = do
+       (m1,t1') <- findcommonSubexp2 t1 m (d+1) l              
+       (m2,t2') <- findcommonSubexp2 t2 m1 (d+1) l       
+       (m3,t3') <- findcommonSubexp2 t3 m2 (d+1) l
+       return (m3, IfZ i t1' t2' t3')       
+
+
+findcommonSubexp2 (Print i s t) m d l = do
+       (m1,t1') <- findcommonSubexp2 t m (d+1) l       
+       return (m1,Print i s t1')
+
+findcommonSubexp2 (Fix i n1 ty n2 t2 t1) m d l = do        
+       (m1,t1') <- findcommonSubexp2 (fromScope2 t1) m (d+1) (l+2)
+       return (m1,Fix i n1 ty n2 t2 (toScope2 t1'))
+
+findcommonSubexp2 t@(Let i v ty t1  t2) m d l = do
+       (m1,t1') <- findcommonSubexp2 t1 m d l
+       (m2,t2') <- findcommonSubexp2 (fromScope t2) m1 (d+1) (l+1)
+
+       -- mb == dd - l terminos que deben ser declarados en este nivel
+       let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb == dd - l) m2
+       
+       return (returnMap, Let i v ty t1' (toScope $ makeStatements t l local))
+
+
+makeStatements:: TTerm -> SubExpMap -> Lambdas -> TTerm
+makeStatements t m l = do 
+
+       -- Ordenar terminos por profundidad
+       let ls = Map.toList m
+           ls' = sortBy (\ (k1, (_,_,d1, _, _)) (k2, (_,_,d2,_, _)) ->  compare d1 d2) ls
+           ls'' = map (\((h,dd),(tt,_,_,_, mb)) -> let nm = show h in  (show h, tt, l, mb)) ls'
+           
+       wrapperLet t (reverse ls'') l
+
+
