@@ -101,7 +101,7 @@ printOp = do
   i <- getPos
   reserved "print"
   str <- option "" stringLiteral  
-  return (SLam i [("222", NatTy)] (SPrint i str (SV i "222")))
+  return (SLam i [("xx_print", NatTy)] (SPrint i str (SV i "xx_print")))
   
   
 

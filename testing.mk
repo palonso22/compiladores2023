@@ -139,7 +139,7 @@ accept: $(patsubst %,%.accept,$(TESTS))
 
 
 %.fd4.actual_out_cc: %.c $(EXE)
-	gcc runtime.c $< -lgc   -o prog 
+	gcc runtime.c $< -lgc -w  -o prog 
 	./prog 	> $@
 
 %.check_cc: %.out %.actual_out_cc
