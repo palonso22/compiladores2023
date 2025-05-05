@@ -101,9 +101,7 @@ optimizer t = do
        (t1,change1) <- constantPropagation t
        --when change1 (printFD4 "Se aplico constant propagation")
        (t2,change2) <- constantFolding t1
-       --when change2 (printFD4 "Se aplico constant folding")       
-       ppt <- pp t
-       --printFD4 ppt
+       --when change2 (printFD4 "Se aplico constant folding")                     
        (t3,change3) <- commonSubexpression t2
        --when change3 (printFD4 "Se aplico common subexpression")       
        if change1 || change2 || change3 then optimizer t3
@@ -153,14 +151,9 @@ type TermMap = Map.Map ByteString TTerm
 
 commonSubexpression :: MonadFD4 m => TTerm -> m (TTerm,Bool)
 commonSubexpression t = do
-       (m, t') <- findCommonSubExp t Map.empty 0 0 (-1)
-       --printFD4 "falta declarar"
-       -- let mm = Map.filter (\(tt,nn,_,b, _) -> isNotVar tt && nn > 1) m
-       -- printFD4 $ show mm
-       -- printFD4 "raw term"
-       -- printFD4 $ show (factorizer t' m 0)
-       return (factorizer t' m 0, True)
-       --return (t', True)
+       (m, t', hc) <- findCommonSubExp t Map.empty 0 0 (-1)      
+       let (tf, hcf) = factorizer t' m 0
+       return (tf, hc || hcf)
 
 
 getMinBound:: TTerm -> Lambdas -> CommonExpMap -> Int
@@ -270,125 +263,71 @@ checkRecursiveIndex::RecursiveIndex->RecursiveIndex
 checkRecursiveIndex (-1) = -1
 checkRecursiveIndex ri = ri+1
 
-findCommonSubExp:: MonadFD4 m => TTerm -> CommonExpMap -> Depth -> Lambdas -> RecursiveIndex -> m (CommonExpMap,TTerm)
-findCommonSubExp t@(V i v) m d l ri = return (countSubexp t False m d l (getMinBoundTerm t), t)
+findCommonSubExp:: MonadFD4 m => TTerm -> CommonExpMap -> Depth -> Lambdas -> RecursiveIndex -> m (CommonExpMap,TTerm, Bool)
+findCommonSubExp t@(V i v) m d l ri = return (countSubexp t False m d l (getMinBoundTerm t), t, False)
 
 
-findCommonSubExp t@(Const i c) m _ _ _ = return (m,t)
+findCommonSubExp t@(Const i c) m _ _ _ = return (m,t, False)
 
 findCommonSubExp (Lam i n ty t) m d l ri = do
-       (m1, t') <- findCommonSubExp (fromScope t) m (d+1) (l+1) (checkRecursiveIndex ri)
-
-       -- mb == dd - l terminos que deben ser declarados en este nivel
-       printFD4 $ "Lam case " ++ show n
-       -- printFD4 $ "level " ++ show l
-       let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb < bound) m1
-       --let mm = Map.filter (\(tt,nn,_,b, _) -> isNotVar tt && nn > 1) local     
-       --printFD4 $ "show local in lam"
-       --printFD4 $ show mm
-       -- Filtrar expresiones q no se repiten
-      -- let mm = Map.filter (\(tt,nn,_,b, _) -> isNotVar tt && nn > 1) m       
-
-       -- Reemplazar expresiones repetidas por su hash
-       -- let tt = replaceExpByHash t' l m1
-       -- printFD4 "replacement"
-       -- printFD4 $ show tt
-       -- -- printFD4 "sale "
-       return (returnMap, Lam i n ty (toScope $ factorizer t' local (l+1)))
+       (m1, t', hc) <- findCommonSubExp (fromScope t) m (d+1) (l+1) (checkRecursiveIndex ri) 
+       let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb < bound) m1      
+       let (tf, hcf) = factorizer t' local (l+1)
+       return (returnMap, Lam i n ty (toScope tf ), hc || hcf)
 
 
-findCommonSubExp t@(App i t1 t2) m d l ri = do       
-       when (ri == 2) (printFD4 $ show t1)
-
-       (m1,t1') <- findCommonSubExp t1 m (d+1) l ri
-       (m2,t2') <- findCommonSubExp t2 m1 (d+1) l ri
+findCommonSubExp t@(App i t1 t2) m d l ri = do              
+       (m1,t1', hc1) <- findCommonSubExp t1 m (d+1) l ri
+       (m2,t2', hc2) <- findCommonSubExp t2 m1 (d+1) l ri
        let mb1 = getMinBound t1 l m2
        let mb2 = getMinBound t2 l m2
        -- Analyze recursive expression
-       return $ if containsBound ri t1' then  (m2, App i t1' t2')
-                else (countSubexp t False m2 d l (min mb1 mb2), App i t1' t2')
+       return $ if containsBound ri t1' then  (m2, App i t1' t2', hc1 || hc2)
+                else (countSubexp t False m2 d l (min mb1 mb2), App i t1' t2', hc1 || hc2)
 
    
 findCommonSubExp t@(BinaryOp i bo t1 t2) m d l ri = do
-       (m1,t1') <- findCommonSubExp t1 m (d+1) l ri
-       (m2,t2') <- findCommonSubExp t2 m1 (d+1) l ri
+       (m1,t1', hc1) <- findCommonSubExp t1 m (d+1) l ri
+       (m2,t2', hc2) <- findCommonSubExp t2 m1 (d+1) l ri
        let mb1 = getMinBound t1 l m2
        let mb2 = getMinBound t2 l m2
-       return (countSubexp t False m2 d l (min mb1 mb2), BinaryOp i bo t1' t2')
+       return (countSubexp t False m2 d l (min mb1 mb2), BinaryOp i bo t1' t2', hc1 || hc2)
 
 
 findCommonSubExp t@(IfZ i t1 t2 t3) m d l ri = do
-       (m1,t1') <- findCommonSubExp t1 m (d+1) l ri
-       (m2,t2') <- findCommonSubExp t2 m1 (d+1) l ri
-       (m3,t3') <- findCommonSubExp t3 m2 (d+1) l ri
-       return (m3, IfZ i t1' t2' t3')
+       (m1,t1', hc1) <- findCommonSubExp t1 m (d+1) l ri
+       (m2,t2', hc2) <- findCommonSubExp t2 m1 (d+1) l ri
+       (m3,t3', hc3) <- findCommonSubExp t3 m2 (d+1) l ri
+       return (m3, IfZ i t1' t2' t3', hc1 || hc2 || hc3)
 
 
 findCommonSubExp (Print i s t) m d l ri = do
-       (m1,t1') <- findCommonSubExp t m (d+1) l ri
-       return (m1,Print i s t1')
+       (m1,t1', hc) <- findCommonSubExp t m (d+1) l ri
+       return (m1,Print i s t1', hc)
 
 findCommonSubExp (Fix i n1 ty n2 ty2 t) m d l ri = do
-       printFD4 $ "fix case" ++ show n1
-       (m1,t') <- findCommonSubExp (fromScope2 t) m (d+1) (l+2) 1
-       -- let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb == dd - (l+2)) m1
-       let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb < bound) m1
-       -- Eliminar terminos recursivos
-       -- printFD4 "aca declaro esto"       
-       --let localNoRecursive = Map.filterWithKey (\(_,dd) (tt,_,_,_,_) -> isBound tt dd (l+1)) local
-
-       -- printFD4 $ "Var1 " ++ n1
-       -- printFD4 $ "termmmm " ++ show t
-       -- printFD4 "local"
-       -- let mm = Map.filter (\(tt,nn,_,b, _) -> isNotVar tt && nn > 1) local
-       -- printFD4 $ "show local in fix"
-       -- printFD4 $ show mm
-       -- printFD4 "return map"           
-       -- printFD4 $ show returnMap
-       -- printFD4 "filtered"
-       -- let mm = Map.filter (\(tt,n,_,b, _) -> isNotVar tt && n > 1) local
-       -- printFD4 $ show mm
-       -- printFD4 "wrapper"       
-       return (returnMap,Fix i n1 ty n2 ty2 (toScope2 $ factorizer t' local (l+2)))
-       -- where  isBound t@(V i v) dd l = getMinBoundTerm t == (l+1) - dd
-       --        isBound (App _ t1 t2) dd l = isBound t1 dd l || isBound t2 dd l
-       --        isBound (BinaryOp _ _ t1 t2) dd l = isBound t1 dd l || isBound t2 dd l
-
-
-
+       (m1,t', hc) <- findCommonSubExp (fromScope2 t) m (d+1) (l+2) 1
+       let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb < bound) m1       
+       let (tf, hcf) = factorizer t' local (l+2)
+       return (returnMap,Fix i n1 ty n2 ty2 (toScope2 tf), hc || hcf)
+      
 
 findCommonSubExp t@(Let i v ty t1  t2) m d l ri = do
-       (m1,t1') <- findCommonSubExp t1 m d l ri
-       (m2,t2') <- findCommonSubExp (fromScope t2) m1 (d+1) (l+1) (checkRecursiveIndex ri)
-
-
-       -- mb == dd - l terminos que deben ser declarados en este nivel
-       --let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb == dd - l) m2
+       (m1,t1', hc1) <- findCommonSubExp t1 m d l ri
+       (m2,t2', hc2) <- findCommonSubExp (fromScope t2) m1 (d+1) (l+1) (checkRecursiveIndex ri)
+            
        let (local, returnMap) = Map.partitionWithKey (\(_,dd) (_,_,_,_, mb) -> mb < bound) m2
 
-       --printFD4 "Let case"
-       -- printFD4 $ "Var " ++ v
-       -- printFD4 $ "Level " ++ show l
-       -- printFD4 "local"
-       -- printFD4 $ show local
-       -- printFD4 "return"       
-       -- printFD4 $ show returnMap
-       -- printFD4 "filtered"
-       -- let mm = Map.filter (\(tt,n,_,b, _) -> isNotVar tt && n > 1) local
-       -- printFD4 $ show mm
-       -- printFD4 "wrapper"
-       -- ppft <- pp $ factorizer t local l
-       -- printFD4 ppft
-
-
-       return (returnMap, Let i v ty t1' (toScope $ factorizer t2' local (l+1)))
+       let (tf, hcf) = factorizer t2' local (l+1)      
+       return (returnMap, Let i v ty t1' (toScope tf), hc1 || hc2 || hcf)
 
 
 
-factorizer:: TTerm -> CommonExpMap -> Lambdas -> TTerm
+-- Retorna termino factorizado
+factorizer:: TTerm -> CommonExpMap -> Lambdas -> (TTerm, Bool)
 factorizer t m l = do
 
-       -- Filtrar expresiones q no se repiten
+       -- Eliminar expresiones q no se repiten o variables
        let m1 = Map.filter (\(tt,n,_,b, _) -> isNotVar tt && n > 1) m
 
        -- Reemplazar expresiones repetidas por su hash
@@ -400,7 +339,7 @@ factorizer t m l = do
            ls'' = map (\((h,dd),(tt,_,_,_, mb)) -> let nm = show h in  (show h, tt, l, mb)) ls'
 
        -- Declarar expresiones repetidas
-       wrapperLet t' (reverse ls'')
+       (wrapperLet t' (reverse ls''), not $ null ls'')
 
 
 isNotVar::TTerm->Bool
