@@ -19,6 +19,7 @@ data GlEnv = GlEnv {
   maxStack :: Int,      -- ^ Máxima cantidad de elementos en la pila
   cantDecl :: Int,      -- ^ Cantidad de declaraciones desde la última carga
   cantOp :: Int,        -- ^ Cantidad de operaciones
+  totalClousures :: Int,  -- ^ Cantidad de closures creados
   glb :: [Decl TTerm],  -- ^ Entorno con declaraciones globales
   tySin :: [(Name,Ty)],    -- ^ Entorno de sinonimos de tipo
   glbCEK :: [Decl Val]
@@ -52,4 +53,4 @@ data Conf = Conf {
 
 -- | Valor del estado inicial
 initialEnv :: GlEnv
-initialEnv = GlEnv False "" 0 0 0 [] [] []
+initialEnv = GlEnv False "" 0 0 0 0 [] [] []
