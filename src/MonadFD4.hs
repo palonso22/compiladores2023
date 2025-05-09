@@ -35,6 +35,8 @@ module MonadFD4 (
   getOp,
   getMaxStack,
   setMaxStack,
+  getTotalClousures,
+  setTotalClousures,
   eraseLastFileDecls,
   failPosFD4,
   failFD4,
@@ -122,6 +124,13 @@ setMaxStack n = modify (\s -> s { maxStack = n })
 
 getMaxStack :: MonadFD4 m => m Int
 getMaxStack = gets maxStack
+
+setTotalClousures :: MonadFD4 m => Int -> m ()
+setTotalClousures n = modify (\s -> s { totalClousures = n })
+
+getTotalClousures :: MonadFD4 m => m Int
+getTotalClousures = gets totalClousures
+
 
 eraseLastFileDecls :: MonadFD4 m => m ()
 eraseLastFileDecls = do

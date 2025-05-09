@@ -188,7 +188,11 @@ isDecl (SDecl {}) = True
 isDecl _ = False
 
 bytecodeRun :: MonadFD4 m => FilePath -> m()
-bytecodeRun filePath = liftIO (bcRead filePath) >>= \bc -> runBC bc
+bytecodeRun filePath = liftIO (bcRead filePath) >>= \bc -> do runBC bc
+                                                              p <- getProf
+                                                              if p then do getOp >>= printFD4 . ("Cantidad de operaciones: "++) . show else return ()
+                                                              if p then do getMaxStack >>= printFD4 . ("Tamaño maximo del stack: "++) . show else return ()
+                                                              if p then do getTotalClousures >>= printFD4 . ("Cantidad de clousures: "++) . show else return ()
 
 parseIO ::  MonadFD4 m => String -> P a -> String -> m a
 parseIO filename p x = case runP p x filename of
@@ -238,7 +242,7 @@ handleDecl sd@SDecl {} = do
             if p then do getOp >>= printFD4 . ("Cantidad de operaciones: "++) . show else return ()
 
           Bytecompile -> do
-              td <- typecheckDecl sd
+              td <- typecheckDecl sd             
               addDecl td
 
           CC -> do

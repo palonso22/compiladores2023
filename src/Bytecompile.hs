@@ -230,56 +230,60 @@ printFD42 :: MonadFD4 m => String -> m ()
 printFD42 = liftIO . putStr
 
 
-checkProfAndStack :: MonadFD4 m => Stack -> m a -> m a
-checkProfAndStack s action = do p <- getProf
-                                if p then do maxS <- getMaxStack
-                                             let currentStack = length s in
-                                              when (currentStack > maxS) $ setMaxStack currentStack
-                                             addOp
-                                             action 
-                                     else action
+checkProfAndStack :: MonadFD4 m => Stack -> m a -> Bool -> m a
+checkProfAndStack s action hasClousures = do p <- getProf
+                                             if p then do maxS <- getMaxStack
+                                                          let currentStack = length s in
+                                                           when (currentStack > maxS) $ setMaxStack currentStack
+                                                          addOp
+                                                          if hasClousures then do actual <- getTotalClousures
+                                                                                  setTotalClousures (actual + 1)
+                                                                                  action                        
+                                                          else action 
+                                                  else action
 
 
 runBC :: MonadFD4 m => Bytecode -> m ()
 runBC c = runBC' c [] []
+              
 
 runBC' :: MonadFD4 m => Bytecode -> Env -> Stack -> m()
 
-runBC' (CONST:n:c) e s = checkProfAndStack (I n:s) $ runBC' c e (I n:s)
+runBC' (CONST:n:c) e s = checkProfAndStack (I n:s) (runBC' c e (I n:s)) False
 
-runBC' (ACCESS:i:c) e s = checkProfAndStack (e!!i:s) $ runBC' c e (e!!i:s)
+runBC' (ACCESS:i:c) e s = checkProfAndStack (e!!i:s) (runBC' c e (e!!i:s)) False
 
-runBC' (ADD:c) e (I n1:I n2:s) = checkProfAndStack (I (n1+n2) :s) $ runBC' c e (I (n1+n2) :s)
+runBC' (ADD:c) e (I n1:I n2:s) = checkProfAndStack (I (n1+n2) :s)  (runBC' c e (I (n1+n2) :s)) False
 
 runBC' (SUB:c) e (I n1:I n2:s) = do let res = max (n2-n1) 0
-                                    checkProfAndStack (I res :s) $ runBC' c e (I res :s)
+                                    checkProfAndStack (I res :s) (runBC' c e (I res :s)) False
 
-runBC' (CALL:c) e (v:Fun ef cf :s)  = checkProfAndStack (RA e c:s) $ runBC' cf (v:ef) (RA e c:s)
+runBC' (CALL:c) e (v:Fun ef cf :s)  = checkProfAndStack (RA e c:s) (runBC' cf (v:ef) (RA e c:s)) False
 
-runBC' (TAILCALL:c) e (v:Fun ef cf :s)  = checkProfAndStack s $ runBC' cf (v:ef) s
+runBC' (TAILCALL:c) e (v:Fun ef cf :s)  = checkProfAndStack s (runBC' cf (v:ef) s) False
 
 
-runBC' (IFZ:ctos:c) e s  = checkProfAndStack (RA e []:I ctos:s) $ runBC' c e (RA e []:I ctos:s)
+runBC' (IFZ:ctos:c) e s  = checkProfAndStack (RA e []:I ctos:s) (runBC' c e (RA e []:I ctos:s)) False
 
-runBC' (IFSTOP:c) _ (I k:RA e _:I ctos:s) | k == 0 = checkProfAndStack s $ runBC' c e s
-                                          | otherwise = checkProfAndStack s $ runBC' (drop ctos c) e s
+runBC' (IFSTOP:c) _ (I k:RA e _:I ctos:s) | k == 0 = checkProfAndStack s (runBC' c e s) False
+                                          | otherwise = checkProfAndStack s (runBC' (drop ctos c) e s) False
 
-runBC' (JUMP:n:c) e s = checkProfAndStack s $ runBC' (drop n c) e s
+runBC' (JUMP:n:c) e s = checkProfAndStack s (runBC' (drop n c) e s) False
 
-runBC' (FUNCTION:ctos:c) e s = checkProfAndStack (Fun e c:s) $ runBC' (drop ctos c) e (Fun e c:s)
+runBC' (FUNCTION:ctos:c) e s = checkProfAndStack (Fun e c:s) (runBC' (drop ctos c) e (Fun e c:s)) True
 
-runBC' (RETURN:_) _ (v:RA e c:s) = checkProfAndStack (v:s) $ runBC' c e (v:s)
+runBC' (RETURN:_) _ (v:RA e c:s) = checkProfAndStack (v:s) (runBC' c e (v:s)) False
 
 runBC' (FIX:c) e (Fun _ cf:s) = do let efix = Fun efix cf:e
-                                   checkProfAndStack (Fun efix cf:s) $ runBC' c e (Fun efix cf:s)
+                                   checkProfAndStack (Fun efix cf:s) (runBC' c e (Fun efix cf:s)) True
 
 
 runBC' (PRINTN:c) e q@(I n:s) = do printFD4 $ show n
-                                   checkProfAndStack q $ runBC' c e q
+                                   checkProfAndStack q (runBC' c e q) False
 
 runBC' (PRINT:c) e s = do let (str,c') = decoderStr "" c
                           printFD42 str
-                          checkProfAndStack s $ runBC'  c' e s
+                          checkProfAndStack s (runBC'  c' e s) False
 
   where -- Consume bytecode y va generando el string codificado
         decoderStr :: String -> [Int] -> (String, [Int])
@@ -287,11 +291,11 @@ runBC' (PRINT:c) e s = do let (str,c') = decoderStr "" c
         decoderStr ss (x:xs) = decoderStr (ss++[chr x]) xs
         decoderStr _ [] = error "Esto no debería pasar"
 
-runBC' (SHIFT:c) e (v:s) = checkProfAndStack s $ runBC' c (v:e) s
+runBC' (SHIFT:c) e (v:s) = checkProfAndStack s (runBC' c (v:e) s) False
 
-runBC' (DROP:c) (v:e) s = checkProfAndStack s $ runBC' c e s
+runBC' (DROP:c) (v:e) s = checkProfAndStack s (runBC' c e s) False
 
-runBC' (STOP:_) _ s = checkProfAndStack s $ return ()
+runBC' (STOP:_) _ s = checkProfAndStack s (return ()) False
 
 runBC' xs e s = error $ "BC:"++show xs++"\n"++
                         "Entorno:" ++ show e ++ "\n"++
